@@ -1,7 +1,7 @@
 {
   "name": "till-you-remember",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
-  "scripts": { "start": "node server.mjs", "check": "node --check dist/game.js && node --check dist/art.js" }
+  "scripts": { "start": "node server.mjs", "check": "node --check dist/game.js && node --check dist/art.js && node --check dist/rpg.js && node --check dist/content.js && node --check dist/world.js && node --check dist/companion.js && node --check dist/save-transfer.js", "qa": "node qa-v2.mjs && node qa-companion.mjs" }
 }

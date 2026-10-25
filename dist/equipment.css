@@ -1,0 +1,5 @@
+.inventory-gear{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:7px;padding:7px 0 15px;border-bottom:1px solid #9d7a43aa}
+.inventory-gear>div>small{display:block;text-align:center;font:9px Georgia,serif;color:#8c6636;margin:0 0 5px;white-space:nowrap}
+.inventory-gear .bag-slot{width:100%}.inventory-gear .slot-empty{font-size:7px}.inventory-gear .bag-slot.filled{border-color:#baa15e}
+.item-actions{display:flex;flex-direction:column;gap:6px}.item-actions .rpg-button{white-space:nowrap}
+@media(max-width:700px){.inventory-gear{gap:4px;padding-top:3px;padding-bottom:12px}.inventory-gear>div>small{font-size:6.5px;margin-bottom:4px}.inventory-gear .slot-empty{font-size:5.5px}}
