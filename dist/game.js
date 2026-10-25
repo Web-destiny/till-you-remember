@@ -10,7 +10,7 @@ const freshPlayer=type=>({x:512,y:1340,type,dir:'up',hp:CLASSES[type].hp,maxHp:C
 const npcData=()=>[
  {id:'elder',name:'Орен',role:'СТАРОСТА ТИХОЛЕСЬЯ',x:397,y:1255,type:'elder',marker:'!',hidden:false},
  {id:'merchant',name:'Мира',role:'ТРАВНИЦА',x:702,y:1405,type:'merchant',marker:'◇',hidden:false},
- {id:'liora',name:'Лиора',role:'ТВОЙ СВЕТ',x:551,y:1327,type:'liora',marker:'',hidden:true}
+ {id:'liora',name:'Амо',role:'ТВОЙ СВЕТ',x:551,y:1327,type:'liora',marker:'',hidden:true}
 ];
 const enemy=(id,x,y,tier=0)=>({id,x,y,homeX:x,homeY:y,type:tier===2?'boss':'shade',dir:'down',hp:tier===2?660:tier===1?90:65,maxHp:tier===2?660:tier===1?90:65,tier,attackCD:1.2,skillCD:3,flash:0,moving:false,windup:0,slow:0});
 const enemiesData=()=>[enemy('s1',505,1060),enemy('s2',537,1000),enemy('s3',500,880,1),enemy('s4',533,811),enemy('s5',484,700,1),enemy('s6',530,385,1),enemy('s7',492,355,1),enemy('warden',512,216,2)];
@@ -31,7 +31,7 @@ const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 const classInfo=()=>CLASSES[state.player.type];
 function transition(title,kicker='ГЛАВА I'){ $('transition-kicker').textContent=kicker;$('transition-title').textContent=title;show('transition');setTimeout(()=>hide('transition'),2850);}
 function setQuest(q){state.quest=q;updateQuest();saveGame();}
-const quests=[['Когда погас свет','Найдите Орена у колодца'],['Следы в тишине','Поговорите с Ореном'],['То, что не забрать','Соберите осколки памяти'],['За гранью забвения','Победите Хранителя у святилища'],['Пока ты помнишь','Вернитесь к Лиоре у портала'],['Обещание исполнено','Тихолесье снова помнит её имя']];
+const quests=[['Когда погас свет','Найдите Орена у колодца'],['Следы в тишине','Поговорите с Ореном'],['То, что не забрать','Соберите осколки памяти'],['За гранью забвения','Победите Хранителя у святилища'],['Пока ты помнишь','Вернитесь к Амо у портала'],['Обещание исполнено','Тихолесье снова помнит её имя']];
 function updateQuest(){const q=quests[state.quest];$('quest-title').textContent=q[0];$('quest-objective').textContent=q[1]+(state.quest===2?` · ${state.shards.filter(s=>s.collected).length} / 3`:'');state.npcs[0].marker=state.quest<2?'!':state.herb&&!state.herbReward?'?':'◇';}
 function currentTarget(){if(state.quest<2)return state.npcs[0];if(state.quest===2)return state.shards.find(s=>!s.collected);if(state.quest===3)return state.enemies.find(e=>e.type==='boss');if(state.quest===4)return state.npcs.find(n=>n.id==='liora');return null;}
 function drawPortraits(){document.querySelectorAll('[data-portrait]').forEach(c=>portrait(c,c.dataset.portrait));portrait($('portrait'),state.player.type);}
@@ -39,15 +39,15 @@ function selectClass(type){state.selected=type;document.querySelectorAll('[data-
 document.querySelectorAll('[data-class]').forEach(el=>el.addEventListener('click',()=>selectClass(el.dataset.class)));
 function startGame(){initAudio();state.player=freshPlayer(state.selected);state.npcs=npcData();state.enemies=enemiesData();state.shards.forEach(s=>s.collected=false);Object.assign(state,{quest:0,stage:'prologue',killCount:0,herb:false,herbReward:false,ending:false,effects:[],projectiles:[],areas:[]});state.player.x=507;state.player.y=1345;state.npcs[2].hidden=false;hide('start-screen');show('hud');drawPortraits();updateSkills();updateQuest();
   dialog([
-    ['Лиора','Я загадала желание. Когда всё закончится, мы уедем к морю. Ты ведь не забыл?','liora','НА КРАЮ ТИХОЛЕСЬЯ'],
-    ['Элиан','Я обещал. И я помню.','hero',''],
+    ['Амо','Я загадала желание. Когда всё закончится, мы уедем к морю. Ты ведь не забыл?','liora','НА КРАЮ ТИХОЛЕСЬЯ'],
+    ['Морриган','Я обещал. И я помню.','hero',''],
     ['Незнакомец','Есть имена, которым не место в этом мире. Она идёт с нами.','shade','ГОЛОС ИЗ ТУМАНА'],
-    ['Лиора','Элиан… Что бы ни случилось — помни меня.','liora',''],
+    ['Амо','Морриган… Что бы ни случилось — помни меня.','liora',''],
   ],()=>{burst(state.npcs[2].x,state.npcs[2].y,'#d0a4ed',65);state.npcs[2].hidden=true;state.shake=8;tone(83,1.5,'sawtooth',.025);state.stage='playing';state.quest=1;updateQuest();transition('Когда погас свет','ПРОЛОГ');setTimeout(()=>toast('Найдите старосту у колодца. Следуйте за ◇'),2900);saveGame();});
 }
 $('start-button').addEventListener('click',()=>{if(hasSave()){openModal('newgame');return;}startGame();});
 function dialog(lines,onDone){input.attack=false;input.keys.clear();state.player.moving=false;state.dialog=lines;state.dialogIndex=0;state.dialogDone=onDone;show('dialog');$('touch-controls').style.visibility='hidden';hide('interact');renderDialog();}
-function renderDialog(){const [name,text,type,role]=state.dialog[state.dialogIndex];$('dialog-name').textContent=name;$('dialog-text').textContent=text;$('dialog-role').textContent=role||'ТИХОЛЕСЬЕ';portrait($('dialog-portrait'),type==='hero'?state.player.type:type);$('dialog-next').innerHTML=state.dialogIndex===state.dialog.length-1?'Продолжить <span>↵</span>':'Далее <span>↵</span>';if(name==='Лиора')tone(587,.4,'sine',.015);}
+function renderDialog(){const [name,text,type,role]=state.dialog[state.dialogIndex];$('dialog-name').textContent=name;$('dialog-text').textContent=text;$('dialog-role').textContent=role||'ТИХОЛЕСЬЕ';portrait($('dialog-portrait'),type==='hero'?state.player.type:type);$('dialog-next').innerHTML=state.dialogIndex===state.dialog.length-1?'Продолжить <span>↵</span>':'Далее <span>↵</span>';if(name==='Амо')tone(587,.4,'sine',.015);}
 function nextDialog(){if(!state.dialog)return;state.dialogIndex++;if(state.dialogIndex>=state.dialog.length){state.dialog=null;hide('dialog');$('touch-controls').style.visibility='';const callback=state.dialogDone;state.dialogDone=null;callback?.();}else renderDialog();}
 $('dialog-next').addEventListener('click',nextDialog);
 function updateSkills(){$('class-label').textContent=classInfo().label;classInfo().skills.forEach((name,i)=>$('skill-'+(i+1)).querySelector('small').textContent=name);portrait($('portrait'),state.player.type);}
@@ -68,7 +68,7 @@ function interact(){if(state.dialog){nextDialog();return;}if(state.paused)return
   if(n.id==='elder'){
     if(state.quest<2){dialog([
       ['Орен','Туман принёс сюда Хранителя. Он забирает людей, вырывая их имена из памяти мира. Но ты ещё помнишь её.','elder','СТАРОСТА ТИХОЛЕСЬЯ'],
-      ['Элиан','Лиора. Её зовут Лиора. Куда они её увели?','hero',''],
+      ['Морриган','Амо. Её зовут Амо. Куда они её увели?','hero',''],
       ['Орен','К святилищу на севере. Собери три осколка её памяти — их свет рассеет печать. Тени на дороге попытаются тебе помешать.','elder',''],
       ['Орен','И не забывай о себе: лечись зельями, уклоняйся от ударов. Твоя память — единственная дорога домой для неё.','elder',''],
     ],()=>{setQuest(2);toast('Новый квест: То, что не забрать',true);toast('Удерживайте атаку. Умения — кнопки над джойстиком.');});}
@@ -96,7 +96,7 @@ function aim(){const p=state.player,e=closestEnemy(classInfo().range+70);if(e)re
 function hitEnemy(e,damage,crit=false){if(e.hp<=0)return;e.hp-=damage;e.flash=.12;fx('text',e.x,e.y-42,{text:String(Math.round(damage)),color:crit?'#f7e0a2':'#eef0d8',big:crit});burst(e.x,e.y,'#bdb0cf',5);tone(130+Math.random()*80,.07,'triangle',.035);
  if(e.hp<=0){e.hp=0;state.killCount++;const p=state.player;p.xp+=e.tier===2?130:22;p.gold+=e.tier===2?80:8;burst(e.x,e.y,'#b7a9cf',22);p.mp=Math.min(p.maxMp,p.mp+12);
    if(p.xp>=p.level*60){p.xp-=p.level*60;p.level++;p.maxHp+=16;p.hp=Math.min(p.maxHp,p.hp+65);p.maxMp+=8;p.mp=p.maxMp;toast('Новый уровень · '+p.level+' · здоровье восстановлено',true);burst(p.x,p.y,'#f4e4a8',35);tone(523,.2,'sine',.04);tone(784,.5,'sine',.03,.17);}
-   if(e.type==='boss'){state.projectiles=state.projectiles.filter(p=>p.friendly);state.areas=[];state.npcs[2].hidden=false;state.npcs[2].x=512;state.npcs[2].y=145;state.npcs[2].marker='!';setQuest(4);hide('boss-bar');transition('Имя, которое ты сохранил','СВЯТИЛИЩЕ');toast('Лиора ждёт у портала.',true);}
+   if(e.type==='boss'){state.projectiles=state.projectiles.filter(p=>p.friendly);state.areas=[];state.npcs[2].hidden=false;state.npcs[2].x=512;state.npcs[2].y=145;state.npcs[2].marker='!';setQuest(4);hide('boss-bar');transition('Имя, которое ты сохранил','СВЯТИЛИЩЕ');toast('Амо ждёт у портала.',true);}
    saveGame();
  }
 }
@@ -119,9 +119,9 @@ function dash(){if(state.paused||state.dialog||state.stage!=='playing')return;co
 function die(){state.paused=true;openModal('death');}
 function respawn(){const p=state.player;p.x=512;p.y=1340;p.hp=p.maxHp;p.mp=p.maxMp;p.potions=Math.max(1,p.potions);p.invuln=2;closeModal();state.projectiles=[];state.areas=[];for(const e of state.enemies)if(e.hp>0){e.x=e.homeX;e.y=e.homeY;e.hp=e.maxHp;e.windup=0;}view.camera.x=p.x;view.camera.y=p.y;toast('Орен вернул тебя к жизни. Память осталась с тобой.');saveGame();}
 function finishStory(){dialog([
- ['Лиора','Ты пришёл. Я слышала, как мир забывает меня. Сначала лицо. Потом голос. А потом… кто-то произнёс моё имя.','liora','У СТАРОГО СВЯТИЛИЩА'],
- ['Элиан','Я обещал, что мы увидим море.','hero',''],
- ['Лиора','Тогда пойдём. Только медленно. Я хочу запомнить эту дорогу.','liora',''],
+ ['Амо','Ты пришёл. Я слышала, как мир забывает меня. Сначала лицо. Потом голос. А потом… кто-то произнёс моё имя.','liora','У СТАРОГО СВЯТИЛИЩА'],
+ ['Морриган','Я обещал, что мы увидим море.','hero',''],
+ ['Амо','Тогда пойдём. Только медленно. Я хочу запомнить эту дорогу.','liora',''],
  ],()=>{state.quest=5;state.ending=true;updateQuest();saveGame();burst(512,145,'#f1e4ad',60);transition('Пока ты помнишь','КОНЕЦ ПЕРВОЙ ГЛАВЫ');setTimeout(()=>openModal('ending'),3000);});}
 function saveGame(){if(state.stage!=='playing')return;try{const p=state.player;localStorage.setItem(SAVE,JSON.stringify({version:1,quest:state.quest,player:{...p},shards:state.shards.map(s=>s.collected),enemies:state.enemies.map(e=>({id:e.id,hp:e.hp})),killCount:state.killCount,herb:state.herb,herbReward:state.herbReward,ending:state.ending,time:Date.now()}));return true;}catch{return false;}}
 function hasSave(){try{const s=JSON.parse(localStorage.getItem(SAVE));return s?.version===1&&CLASSES[s.player?.type]&&Array.isArray(s.shards)&&Array.isArray(s.enemies)&&Number.isInteger(s.quest)&&s.quest>=0&&s.quest<=5;}catch{return false;}}
@@ -129,13 +129,13 @@ function continueGame(){if(!hasSave()){toast('Сохранение не найд
 $('continue-button').addEventListener('click',continueGame);
 function openModal(kind){if(state.dialog)return;state.paused=true;input.keys.clear();input.attack=false;state.modal=kind;show('modal');const el=$('modal-content');
  const button=(id,label,primary=false)=>`<button id="${id}" class="${primary?'primary-button':'secondary-button'}">${label}</button>`;
- if(kind==='pause')el.innerHTML=`<small class="modal-kicker">TILL YOU REMEMBER</small><h2>Мир подождёт.</h2><p>Путешествие сохраняется на этом устройстве. Сделай вдох — Лиора всё ещё ждёт.</p>${button('resume-game','Вернуться к истории →',true)}${button('save-game','Сохранить путешествие')}${button('controls-help','Как играть')}${button('back-title','Главное меню')}`;
+ if(kind==='pause')el.innerHTML=`<small class="modal-kicker">TILL YOU REMEMBER</small><h2>Мир подождёт.</h2><p>Путешествие сохраняется на этом устройстве. Сделай вдох — Амо всё ещё ждёт.</p>${button('resume-game','Вернуться к истории →',true)}${button('save-game','Сохранить путешествие')}${button('controls-help','Как играть')}${button('back-title','Главное меню')}`;
  if(kind==='controls')el.innerHTML=`<small class="modal-kicker">ПУТЬ НАЧИНАЕТСЯ С ШАГА</small><h2>Как играть</h2><p>На телефоне двигайся левым джойстиком. Удерживай большую кнопку справа для атаки — герой сам выберет ближайшую цель. Маленькая кнопка рядом — рывок с короткой неуязвимостью.</p><p>Три квадратные кнопки — умения класса. Сердце — лечебное зелье. Приблизься к человеку или осколку: появится кнопка взаимодействия. ◇ указывает путь к цели.</p><div class="control-list"><span><kbd>WASD / стрелки</kbd> · ходьба</span><span><kbd>Клик / K</kbd> · атака</span><span><kbd>1 / 2 / 3</kbd> · умения</span><span><kbd>Пробел</kbd> · рывок</span><span><kbd>F</kbd> · разговор / сбор</span><span><kbd>Q</kbd> · зелье</span><span><kbd>J / M</kbd> · журнал / карта</span><span><kbd>Esc</kbd> · пауза</span></div>${button('resume-game','Я готов →',true)}`;
- if(kind==='journal'){const collected=state.shards.filter(s=>s.collected).length;const steps=[['Поговорить с Ореном у колодца',state.quest>=2],['Собрать осколки памяти · '+collected+' / 3',collected===3],['Победить Хранителя забвения',state.quest>=4],['Вернуть Лиору',state.quest>=5]];el.innerHTML=`<small class="modal-kicker">ЖУРНАЛ ПУТЕШЕСТВИЯ · ГЛАВА I</small><h2>Следы в тишине</h2><p>Лиору увели к старому святилищу. Пока её имя живёт в твоей памяти, ещё не всё потеряно.</p>${steps.map(([title,done],i)=>`<div class="journal-step ${done?'done':i===steps.findIndex(s=>!s[1])?'active':''}"><span>${done?'✓':'◇'}</span>${title}</div>`).join('')}<h3>В дорожной сумке</h3><p>Зелья: ${state.player.potions} · Монеты: ${state.player.gold} · Уровень: ${state.player.level}<br>Опыт: ${state.player.xp} / ${state.player.level*60} · Побеждено теней: ${state.killCount}</p>${state.herb?`<h3>Дар у моста</h3><p>${state.herbReward?'✓ Лунный мох собран, два зелья получены.':'Найдите лунный мох у восточного фонаря моста.'}</p>`:''}${button('resume-game','Продолжить путь →',true)}`;}
+ if(kind==='journal'){const collected=state.shards.filter(s=>s.collected).length;const steps=[['Поговорить с Ореном у колодца',state.quest>=2],['Собрать осколки памяти · '+collected+' / 3',collected===3],['Победить Хранителя забвения',state.quest>=4],['Вернуть Амо',state.quest>=5]];el.innerHTML=`<small class="modal-kicker">ЖУРНАЛ ПУТЕШЕСТВИЯ · ГЛАВА I</small><h2>Следы в тишине</h2><p>Амо увели к старому святилищу. Пока её имя живёт в твоей памяти, ещё не всё потеряно.</p>${steps.map(([title,done],i)=>`<div class="journal-step ${done?'done':i===steps.findIndex(s=>!s[1])?'active':''}"><span>${done?'✓':'◇'}</span>${title}</div>`).join('')}<h3>В дорожной сумке</h3><p>Зелья: ${state.player.potions} · Монеты: ${state.player.gold} · Уровень: ${state.player.level}<br>Опыт: ${state.player.xp} / ${state.player.level*60} · Побеждено теней: ${state.killCount}</p>${state.herb?`<h3>Дар у моста</h3><p>${state.herbReward?'✓ Лунный мох собран, два зелья получены.':'Найдите лунный мох у восточного фонаря моста.'}</p>`:''}${button('resume-game','Продолжить путь →',true)}`;}
  if(kind==='map'){el.innerHTML=`<small class="modal-kicker">ЗЕМЛИ ТИХОЛЕСЬЯ</small><h2>Твоя дорога</h2><canvas id="map-canvas" width="512" height="768"></canvas><div class="map-legend"><span>● Ты</span><span>◇ Цель</span><span>✦ Память</span><span>× Тени</span></div>`;drawMap();}
  if(kind==='death')el.innerHTML=`<small class="modal-kicker">ЭТО ЕЩЁ НЕ КОНЕЦ</small><h2>Память не гаснет.</h2><p>Тени оказались сильнее. Но твоё обещание осталось. Ты вернёшься в деревню с сохранёнными осколками и опытом.</p>${button('respawn','Попробовать снова →',true)}`;
  if(kind==='newgame')el.innerHTML=`<small class="modal-kicker">НОВОЕ ПУТЕШЕСТВИЕ</small><h2>Начать с чистого листа?</h2><p>На этом устройстве уже есть история. Новое путешествие заменит сохранение.</p>${button('confirm-new','Начать новую историю →',true)}${button('load-existing','Продолжить сохранённую историю')}`;
- if(kind==='ending')el.innerHTML=`<small class="modal-kicker">ГЛАВА I · ЗАВЕРШЕНА</small><h2>Она помнит тебя.</h2><p>Ты вернул Лиору. Не потому, что был сильнее тьмы, а потому, что не позволил ей стать забытой.</p><p>Побеждено теней: ${state.killCount} · Уровень: ${state.player.level}<br>Все три воспоминания снова принадлежат вам.</p><h3>Дальше — к морю.</h3><p>Первая глава завершена. Можно вернуться в Тихолесье и ещё немного побыть в этом мире.</p>${button('resume-game','Остаться в Тихолесье →',true)}${button('back-title','К началу истории')}`;
+ if(kind==='ending')el.innerHTML=`<small class="modal-kicker">ГЛАВА I · ЗАВЕРШЕНА</small><h2>Она помнит тебя.</h2><p>Ты вернул Амо. Не потому, что был сильнее тьмы, а потому, что не позволил ей стать забытой.</p><p>Побеждено теней: ${state.killCount} · Уровень: ${state.player.level}<br>Все три воспоминания снова принадлежат вам.</p><h3>Дальше — к морю.</h3><p>Первая глава завершена. Можно вернуться в Тихолесье и ещё немного побыть в этом мире.</p>${button('resume-game','Остаться в Тихолесье →',true)}${button('back-title','К началу истории')}`;
  el.querySelector('#resume-game')?.addEventListener('click',closeModal);
  el.querySelector('#save-game')?.addEventListener('click',()=>toast(saveGame()?'Путешествие сохранено':'Браузер не разрешил сохранение',true));
  el.querySelector('#controls-help')?.addEventListener('click',()=>openModal('controls'));
@@ -177,7 +177,7 @@ function update(dt){state.time+=dt;
 function hud(){const p=state.player;$('hp-fill').style.width=Math.max(0,p.hp/p.maxHp*100)+'%';$('mp-fill').style.width=p.mp/p.maxMp*100+'%';$('hp-text').textContent=Math.ceil(p.hp)+' / '+p.maxHp;$('level').textContent=p.level;$('potion-count').textContent=p.potions;
  for(let i=0;i<3;i++){const el=$('skill-'+(i+1)),cd=p.cooldowns[i];el.classList.toggle('cooldown',cd>0);el.querySelector('.skill-timer').textContent=cd>0?Math.ceil(cd):'';el.style.opacity=p.mp<[20,28,45][i]&&cd===0?'.45':'';}
  $('dash').style.opacity=p.dashCD>0?'.4':'1';
- const near=nearestInteraction();if(near&&!state.paused){show('interact');$('interact-label').textContent=near.kind==='shard'?'Собрать воспоминание':near.kind==='herb'?'Собрать лунный мох':near.value.id==='liora'?'Обнять Лиору':'Поговорить · '+near.value.name;}else hide('interact');
+ const near=nearestInteraction();if(near&&!state.paused){show('interact');$('interact-label').textContent=near.kind==='shard'?'Собрать воспоминание':near.kind==='herb'?'Собрать лунный мох':near.value.id==='liora'?'Обнять Амо':'Поговорить · '+near.value.name;}else hide('interact');
  const target=currentTarget();if(target&&state.stage==='playing'&&!state.dialog&&!state.paused){const d=distance(p,target);$('compass').classList.toggle('hidden',d<60);const a=Math.atan2(target.y-p.y,target.x-p.x);$('compass').style.left=(50+Math.cos(a)*17)+'%';$('compass').style.top=(48+Math.sin(a)*12)+'%';$('compass-distance').textContent=Math.round(d/8)+' м';}else hide('compass');
  const region=p.y>1100?'Тихолесье':p.y>605?'Шепчущий лес':p.y>350?'Старый мост':'Забытое святилище';$('region').textContent=state.stage==='start'?'Тихолесье':region;
 }
