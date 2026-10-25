@@ -1,8 +1,9 @@
-import { art,loadArt,portrait,drawWorld,WORLD } from './art.js';
-import { CLASSES } from './content.js';
-import { createRPG } from './rpg.js';
-import { walkableFoot, bounds, DOORS, INTERIORS } from './world.js';
-import { installSaveTransfer } from './save-transfer.js';
+import { art,loadArt,portrait,drawWorld,WORLD } from './art.js?v=3';
+import { CLASSES } from './content.js?v=3';
+import { createRPG } from './rpg.js?v=3';
+import { walkableFoot, bounds, DOORS, INTERIORS } from './world.js?v=3';
+import { installSaveTransfer } from './save-transfer.js?v=3';
+import { installSkillUI } from './skill-ui.js?v=3';
 const $=id=>document.getElementById(id), hide=id=>$(id).classList.add('hidden'), show=id=>$(id).classList.remove('hidden');
 const SAVE='tyr.chapter1.v1';
 const typeKey=t=>t==='knight'?'paladin':t;
@@ -16,6 +17,7 @@ const enemy=(id,x,y,tier=0)=>({id,x,y,homeX:x,homeY:y,type:tier===2?'boss':'shad
 const enemiesData=()=>[enemy('s1',505,1060),enemy('s2',537,1000),enemy('s3',500,880,1),enemy('s4',533,811),enemy('s5',484,700,1),enemy('s6',530,385,1),enemy('s7',492,355,1),enemy('warden',512,216,2)];
 const state={stage:'start',scene:'overworld',time:0,quest:0,player:freshPlayer('paladin'),npcs:npcData(),enemies:enemiesData(),shards:[{id:0,x:503,y:970,collected:false},{id:1,x:532,y:748,collected:false},{id:2,x:505,y:326,collected:false}],effects:[],projectiles:[],areas:[],paused:false,modal:null,dialog:null,dialogIndex:0,dialogDone:null,selected:'paladin',killCount:0,herb:false,herbReward:false,ending:false,saveTimer:0,shake:0};
 let rpg=null;
+let updateSkillIcons=()=>{};
 const canvas=$('world'),ctx=canvas.getContext('2d',{alpha:false});
 const view={width:innerWidth,height:innerHeight,dpr:Math.min(devicePixelRatio||1,2),zoom:1,camera:{x:512,y:1260}};
 const input={keys:new Set(),joyX:0,joyY:0,attack:false,pointerId:null};
@@ -37,7 +39,7 @@ const quests=[['Когда погас свет','Найдите Орена у к
 function updateQuest(){const q=quests[state.quest];$('quest-title').textContent=state.quest===5?'Дорога домой':q[0];$('quest-objective').textContent=state.quest===5?(state.world?.house.owned?'Обустраивайте общий дом с Амо':'Купите участок или дом в рыночном квартале'):q[1]+(state.quest===2?` · ${state.shards.filter(s=>s.collected).length} / 3`:'');state.npcs[0].marker=state.quest<2?'!':state.herb&&!state.herbReward?'?':'◇';}
 function currentTarget(){const together=rpg?.target();if(state.quest===5&&together)return together;if(state.scene!=='overworld')return null;if(state.quest<2)return state.npcs[0];if(state.quest===2)return state.shards.find(s=>!s.collected);if(state.quest===3)return state.enemies.find(e=>e.type==='boss');if(state.quest===4)return state.npcs.find(n=>n.id==='liora');if(state.quest===5)return{x:512,y:1490};return null;}
 function drawPortraits(){document.querySelectorAll('[data-portrait]').forEach(c=>portrait(c,c.dataset.portrait));portrait($('portrait'),state.player.type);}
-function selectClass(type){state.selected=type;document.querySelectorAll('[data-class]').forEach(el=>{const on=el.dataset.class===type;el.classList.toggle('selected',on);el.setAttribute('aria-pressed',String(on));});$('class-description').textContent=CLASSES[type].desc;document.querySelector('.panel-heading small').textContent=`0${Object.keys(CLASSES).indexOf(type)+1} / 04`;tone(350+Object.keys(CLASSES).indexOf(type)*100,.12,'sine',.03);}
+function selectClass(type){state.selected=type;art.animations?.ensureWalk(type);document.querySelectorAll('[data-class]').forEach(el=>{const on=el.dataset.class===type;el.classList.toggle('selected',on);el.setAttribute('aria-pressed',String(on));});$('class-description').textContent=CLASSES[type].desc;document.querySelector('.panel-heading small').textContent=`0${Object.keys(CLASSES).indexOf(type)+1} / 04`;tone(350+Object.keys(CLASSES).indexOf(type)*100,.12,'sine',.03);}
 document.querySelectorAll('[data-class]').forEach(el=>el.addEventListener('click',()=>selectClass(el.dataset.class)));
 function startGame(){initAudio();state.player=freshPlayer(state.selected);rpg.reset();state.npcs=npcData();state.enemies=enemiesData();state.shards.forEach(s=>s.collected=false);Object.assign(state,{quest:0,stage:'prologue',killCount:0,herb:false,herbReward:false,ending:false,effects:[],projectiles:[],areas:[]});state.player.x=507;state.player.y=1345;state.npcs[2].hidden=false;hide('start-screen');show('hud');drawPortraits();updateSkills();updateQuest();
   dialog([
@@ -52,7 +54,7 @@ function dialog(lines,onDone){input.attack=false;input.keys.clear();state.player
 function renderDialog(){const [name,text,type,role]=state.dialog[state.dialogIndex];$('dialog-name').textContent=name;$('dialog-text').textContent=text;$('dialog-role').textContent=role||'ТИХОЛЕСЬЕ';portrait($('dialog-portrait'),type==='hero'?state.player.type:type);$('dialog-next').innerHTML=state.dialogIndex===state.dialog.length-1?'Продолжить <span>↵</span>':'Далее <span>↵</span>';if(name==='Амо')tone(587,.4,'sine',.015);}
 function nextDialog(){if(!state.dialog)return;state.dialogIndex++;if(state.dialogIndex>=state.dialog.length){state.dialog=null;hide('dialog');$('touch-controls').style.visibility='';const callback=state.dialogDone;state.dialogDone=null;callback?.();}else renderDialog();}
 $('dialog-next').addEventListener('click',nextDialog);
-function updateSkills(){$('class-label').textContent=classInfo().label;const runes={paladin:['✝','♜','☀'],mage:['✦','❄','☄'],rogue:['⚔','☁','✧'],necromancer:['☠','♙','✥']};classInfo().skills.forEach((name,i)=>{const el=$('skill-'+(i+1));el.querySelector('small').textContent=name;el.dataset.rune=runes[state.player.type][i];el.setAttribute('aria-label',name);});document.body.style.setProperty('--weapon-x',({paladin:0,mage:20,rogue:40,necromancer:60})[state.player.type]+'%');portrait($('portrait'),state.player.type);}
+function updateSkills(){$('class-label').textContent=classInfo().label;classInfo().skills.forEach((name,i)=>{const el=$('skill-'+(i+1));el.querySelector('small').textContent=name;el.setAttribute('aria-label',name);});updateSkillIcons(state.player.type);document.body.style.setProperty('--weapon-x',({paladin:0,mage:20,rogue:40,necromancer:60})[state.player.type]+'%');portrait($('portrait'),state.player.type);}
 function nearestInteraction(){if(state.stage!=='playing'||state.dialog)return null;const p=state.player;
   const near=rpg?.nearby();if(near)return near;if(state.scene!=='overworld')return null;
   const npcs=state.npcs.filter(n=>!n.hidden&&distance(n,p)<53);if(npcs.length)return {kind:'npc',value:npcs.sort((a,b)=>distance(a,p)-distance(b,p))[0]};
@@ -87,7 +89,7 @@ function interact(){if(state.dialog){nextDialog();return;}if(state.paused)return
 }
 $('interact').addEventListener('click',interact);
 function walkable(x,y){return walkableFoot(state.scene||'overworld',x,y,state.stage==='playing'?state.quest:5);}
-function moveEntity(e,dx,dy){const steps=Math.max(1,Math.ceil(Math.max(Math.abs(dx),Math.abs(dy))/3));for(let i=0;i<steps;i++){if(walkable(e.x+dx/steps,e.y))e.x+=dx/steps;if(walkable(e.x,e.y+dy/steps))e.y+=dy/steps;}}
+function moveEntity(e,dx,dy){const ox=e.x,oy=e.y,steps=Math.max(1,Math.ceil(Math.max(Math.abs(dx),Math.abs(dy))/3));for(let i=0;i<steps;i++){if(walkable(e.x+dx/steps,e.y))e.x+=dx/steps;if(walkable(e.x,e.y+dy/steps))e.y+=dy/steps;}e.walkDistance=(e.walkDistance||0)+Math.hypot(e.x-ox,e.y-oy);}
 function closestEnemy(range=Infinity){if(state.scene!=='overworld')return null;const p=state.player;return state.enemies.filter(e=>e.hp>0&&(e.type!=='boss'||state.quest>=3)&&distance(e,p)<=range).sort((a,b)=>distance(a,p)-distance(b,p))[0];}
 function aim(){const p=state.player,e=closestEnemy(classInfo().range+70);if(e)return Math.atan2(e.y-p.y,e.x-p.x);const dirs={up:-Math.PI/2,down:Math.PI/2,left:Math.PI,right:0};return dirs[p.dir];}
 function hitEnemy(e,damage,crit=false){if(e.hp<=0||state.scene!=='overworld')return;crit=crit||Math.random()<classInfo().crit;damage=Math.round(damage*(crit?1.5:1));e.hp-=damage;e.flash=.12;const lifeSteal=classInfo().lifesteal||0;if(lifeSteal)state.player.hp=Math.min(state.player.maxHp,state.player.hp+damage*lifeSteal);fx('text',e.x,e.y-42,{text:String(damage),color:crit?'#f7e0a2':'#eef0d8',big:crit});burst(e.x,e.y,'#bdb0cf',5);tone(130+Math.random()*80,.07,'triangle',.035);
@@ -99,16 +101,46 @@ function hitEnemy(e,damage,crit=false){if(e.hp<=0||state.scene!=='overworld')ret
 }
 function damagePlayer(amount){const p=state.player;if(p.invuln>0||state.dialog)return;if(p.shield>0)amount*=.35;amount=Math.max(1,Math.round(amount*(100/(100+classInfo().armor*4))));p.hp=Math.max(0,p.hp-amount);p.invuln=.65;p.flash=.15;state.shake=3;fx('text',p.x,p.y-45,{text:'−'+amount,color:'#f4b8a9'});tone(90,.12,'triangle',.045);if(p.hp<=0)die();}
 function attack(){if(state.stage!=='playing'||state.paused||state.dialog||state.romancePose)return;const p=state.player,cl=classInfo();if(p.attackCD>0||p.action?.kind==='skill'&&p.action.t<.25)return;p.attackCD=cl.delay;const a=aim();p.dir=Math.abs(Math.cos(a))>.6?(Math.cos(a)>0?'right':'left'):(Math.sin(a)>0?'down':'up');p.action={kind:'attack',t:0,duration:cl.delay,angle:a,dir:p.dir};state.world.relationship.holdingHands=false;
-  queueHit(cl.delay*.35,()=>{if(p.hp<=0)return;if(['mage','necromancer'].includes(p.type)){state.projectiles.push({x:p.x,y:p.y-14,vx:Math.cos(a)*270,vy:Math.sin(a)*270,life:1.1,friendly:true,damage:cl.damage+p.level*2,color:cl.color});tone(p.type==='mage'?560:260,.11,'sine',.025);}
+  queueHit(cl.delay*.35,()=>{if(p.hp<=0)return;if(['mage','necromancer'].includes(p.type)){state.projectiles.push({x:p.x,y:p.y-14,vx:Math.cos(a)*270,vy:Math.sin(a)*270,life:1.1,friendly:true,kind:p.type==='necromancer'?'soul':'arcane',damage:cl.damage+p.level*2,color:cl.color});tone(p.type==='mage'?560:260,.11,'sine',.025);}
   else{fx('slash',p.x,p.y,{angle:a,r:cl.range-9,color:cl.color});if(state.scene==='overworld')for(const e of state.enemies){if(e.hp<=0||(e.type==='boss'&&state.quest<3))continue;const ea=Math.atan2(e.y-p.y,e.x-p.x),diff=Math.atan2(Math.sin(ea-a),Math.cos(ea-a));if(distance(e,p)<cl.range+12&&Math.abs(diff)<1.5){hitEnemy(e,cl.damage+p.level*2);if(p.type==='rogue')e.poison=4;}}tone(220,.08,'triangle',.016);}});
 }
-function useSkill(i){if(state.stage!=='playing'||state.paused||state.dialog||state.romancePose)return;const p=state.player,cl=classInfo(),cost=[20,28,45][i];if(p.cooldowns[i]>0)return;if(p.mp<cost){toast('Не хватает энергии');return;}p.mp-=cost;p.cooldowns[i]=cl.cooldowns[i];const a=aim();p.dir=Math.abs(Math.cos(a))>.6?(Math.cos(a)>0?'right':'left'):(Math.sin(a)>0?'down':'up');p.action={kind:'skill',t:0,duration:i===2?1:.8,dir:p.dir,angle:a};state.world.relationship.holdingHands=false;
-  const enemies=state.scene==='overworld'?state.enemies.filter(e=>e.hp>0&&(e.type!=='boss'||state.quest>=3)):[],power=1+(cl.spell||0),area=(radius,damage)=>{for(const e of enemies)if(distance(e,p)<radius)hitEnemy(e,(damage+p.level*4)*power,true);},ring=r=>fx('ring',p.x,p.y,{r,color:cl.color,life:.8,maxLife:.8}),recover=n=>{n=Math.round(n*(1+(cl.healing||0)));p.hp=Math.min(p.maxHp,p.hp+n);fx('text',p.x,p.y-45,{text:'+'+n,color:'#d7efb6'});};
-  queueHit(.24,()=>{if(p.hp<=0)return;if(p.type==='paladin'){if(i===0){fx('slash',p.x,p.y,{angle:a,r:75,color:cl.color,heavy:true});area(90,66);}if(i===1){recover(52);p.shield=7;p.invuln=.8;ring(80);}if(i===2){ring(160);area(160,115);p.shield=3;burst(p.x,p.y,cl.color,45);}}
-  if(p.type==='mage'){if(i===0)for(let j=-1;j<=1;j++)state.projectiles.push({x:p.x,y:p.y-14,vx:Math.cos(a+j*.2)*300,vy:Math.sin(a+j*.2)*300,life:1.1,friendly:true,damage:(40+p.level*4)*power,color:cl.color});if(i===1){ring(125);area(125,28);for(const e of enemies)if(distance(e,p)<125)e.slow=5;p.invuln=.5;}if(i===2){const e=closestEnemy(240)||{x:p.x+Math.cos(a)*80,y:p.y+Math.sin(a)*80};state.areas.push({x:e.x,y:e.y,r:100,timer:.9,friendly:true,damage:(150+p.level*5)*power});}}
-  if(p.type==='rogue'){if(i===0){p.invuln=.7;for(let j=0;j<12;j++)moveEntity(p,Math.cos(a)*4,Math.sin(a)*4);fx('slash',p.x,p.y,{angle:a,r:65,color:cl.color,heavy:true});area(85,65);}if(i===1){p.invuln=2.4;ring(95);for(const e of enemies)if(distance(e,p)<95){e.poison=7;e.slow=4;}}if(i===2)for(let j=-3;j<=3;j++)state.projectiles.push({x:p.x,y:p.y-14,vx:Math.cos(a+j*.22)*330,vy:Math.sin(a+j*.22)*330,life:.9,friendly:true,damage:(54+p.level*4)*power,color:cl.color});}
-  if(p.type==='necromancer'){if(i===0){const e=closestEnemy(230);if(e){hitEnemy(e,(65+p.level*4)*power,true);fx('slash',p.x,p.y,{angle:a,r:distance(e,p),color:cl.color});recover(35);}else ring(65);}if(i===1){state.summons=state.summons.filter(s=>s.type!=='skeleton');const dead=enemies.length?state.enemies.filter(e=>e.hp<=0&&distance(e,p)<200):[];for(let j=0;j<2+(cl.summons||0);j++){const pos=dead[j]||{x:p.x+(j%2?23:-23),y:p.y-14};state.summons.push({x:pos.x,y:pos.y,hp:90,maxHp:90,life:28,cd:.5,type:'skeleton',dir:p.dir});}ring(60);toast('Скелеты восстали и сражаются за тебя',true);}if(i===2){state.summons=state.summons.filter(s=>s.type!=='undeadpaladin');state.summons.push({x:p.x,y:p.y-30,hp:420,maxHp:420,life:35,cd:.5,type:'undeadpaladin',dir:p.dir});ring(110);burst(p.x,p.y,cl.color,45);toast('Падший паладин встал на твою сторону',true);}}});
-  tone(i===1?440:196,.4,'triangle',.045);tone(i===1?659:392,.6,'sine',.025,.1);
+function useSkill(i){
+ if(state.stage!=='playing'||state.paused||state.dialog||state.romancePose)return;
+ const p=state.player,cl=classInfo(),cost=[20,28,45][i];
+ if(p.cooldowns[i]>0)return;if(p.mp<cost){toast('Не хватает энергии');return;}
+ p.mp-=cost;p.cooldowns[i]=cl.cooldowns[i];const a=aim();
+ p.dir=Math.abs(Math.cos(a))>.6?(Math.cos(a)>0?'right':'left'):(Math.sin(a)>0?'down':'up');
+ p.action={kind:'skill',t:0,duration:i===2?1:.8,dir:p.dir,angle:a};state.world.relationship.holdingHands=false;
+ const enemies=state.scene==='overworld'?state.enemies.filter(e=>e.hp>0&&(e.type!=='boss'||state.quest>=3)):[],power=1+(cl.spell||0);
+ const area=(r,damage)=>{for(const e of enemies)if(distance(e,p)<r)hitEnemy(e,(damage+p.level*4)*power,true);};
+ const ring=r=>fx('ring',p.x,p.y,{r,color:cl.color,life:.8,maxLife:.8});
+ const recover=n=>{n=Math.round(n*(1+(cl.healing||0)));p.hp=Math.min(p.maxHp,p.hp+n);fx('text',p.x,p.y-45,{text:'+'+n,color:'#d7efb6'});};
+ const effect=(kind,r,life)=>fx(kind,p.x,p.y,{r,life,maxLife:life,color:cl.color});
+ queueHit(.24,()=>{
+  if(p.hp<=0)return;
+  fx('text',p.x,p.y-54,{text:cl.skills[i],color:cl.color,small:true,life:.75,maxLife:.75});
+  if(p.type==='paladin'){
+   if(i===0){fx('slash',p.x,p.y,{angle:a,r:75,color:cl.color,heavy:true});effect('holyStrike',75,.48);area(90,66);}
+   if(i===1){recover(52);p.shield=7;p.invuln=.8;ring(55);burst(p.x,p.y,'#f7e4ae',15);}
+   if(i===2){effect('judgement',160,.85);area(160,115);p.shield=3;burst(p.x,p.y,cl.color,35);}
+  }
+  if(p.type==='mage'){
+   if(i===0)for(let j=-1;j<=1;j++)state.projectiles.push({x:p.x,y:p.y-14,vx:Math.cos(a+j*.2)*300,vy:Math.sin(a+j*.2)*300,life:1.1,friendly:true,damage:(40+p.level*4)*power,color:'#ffc372',kind:'firebolt'});
+   if(i===1){effect('frost',125,.9);area(125,28);for(const e of enemies)if(distance(e,p)<125)e.slow=5;p.invuln=.5;}
+   if(i===2){const e=closestEnemy(240)||{x:p.x+Math.cos(a)*80,y:p.y+Math.sin(a)*80};state.areas.push({x:e.x,y:e.y,r:100,timer:.9,maxTime:.9,friendly:true,kind:'meteor',damage:(150+p.level*5)*power});}
+  }
+  if(p.type==='rogue'){
+   if(i===0){fx('afterimage',p.x,p.y,{type:p.type,dir:p.dir,life:.5,maxLife:.5});p.invuln=.7;for(let j=0;j<12;j++)moveEntity(p,Math.cos(a)*4,Math.sin(a)*4);fx('slash',p.x,p.y,{angle:a,r:65,color:cl.color,heavy:true});area(85,65);}
+   if(i===1){p.invuln=2.4;effect('smoke',95,2.4);for(const e of enemies)if(distance(e,p)<95){e.poison=7;e.slow=4;}}
+   if(i===2)for(let j=-3;j<=3;j++)state.projectiles.push({x:p.x,y:p.y-14,vx:Math.cos(a+j*.22)*330,vy:Math.sin(a+j*.22)*330,life:.9,friendly:true,damage:(54+p.level*4)*power,color:cl.color,kind:'knife'});
+  }
+  if(p.type==='necromancer'){
+   if(i===0){const e=closestEnemy(230);if(e){hitEnemy(e,(65+p.level*4)*power,true);fx('drain',p.x,p.y,{target:e,life:.7,maxLife:.7});recover(35);}else effect('summon',30,.45);}
+   if(i===1){state.summons=state.summons.filter(s=>s.type!=='skeleton');const dead=state.enemies.filter(e=>e.hp<=0&&distance(e,p)<200);for(let j=0;j<2+(cl.summons||0);j++){const pos=dead[j]||{x:p.x+(j%2?23:-23),y:p.y-14};state.summons.push({x:pos.x,y:pos.y,hp:90,maxHp:90,life:28,cd:.5,type:'skeleton',dir:p.dir,rise:.45});}effect('summon',55,.9);}
+   if(i===2){state.summons=state.summons.filter(s=>s.type!=='undeadpaladin');state.summons.push({x:p.x,y:p.y-30,hp:420,maxHp:420,life:35,cd:.5,type:'undeadpaladin',dir:p.dir,rise:.7});effect('summon',85,1);burst(p.x,p.y,cl.color,35);}
+  }
+ });
+ tone(i===1?440:196,.4,'triangle',.045);tone(i===1?659:392,.6,'sine',.025,.1);
 }
 function heal(fromInventory=false){if(state.paused&&!fromInventory||state.dialog||state.stage!=='playing')return;const p=state.player;if(rpg.count('potion')<=0){toast('Зелья закончились. Купите их на рынке или сварите из трав.');return;}if(p.hp>=p.maxHp){toast('Здоровье уже восстановлено');return;}rpg.take('potion');const old=p.hp;p.hp=Math.min(p.maxHp,p.hp+85);fx('text',p.x,p.y-45,{text:'+'+Math.round(p.hp-old),color:'#d3edb6'});burst(p.x,p.y,'#c6e9ac',20);tone(659,.3,'sine',.035);saveGame();}
 function dash(){if(state.paused||state.dialog||state.stage!=='playing'||state.romancePose)return;const p=state.player;if(p.dashCD>0)return;p.dashCD=Math.max(.8,2.2-(classInfo().dash||0));p.invuln=.45;let dx=input.joyX+(input.keys.has('KeyD')||input.keys.has('ArrowRight')?1:0)-(input.keys.has('KeyA')||input.keys.has('ArrowLeft')?1:0),dy=input.joyY+(input.keys.has('KeyS')||input.keys.has('ArrowDown')?1:0)-(input.keys.has('KeyW')||input.keys.has('ArrowUp')?1:0);if(!dx&&!dy){const a=aim();dx=Math.cos(a);dy=Math.sin(a);}const len=Math.hypot(dx,dy)||1;for(let j=0;j<16;j++){moveEntity(p,dx/len*4,dy/len*4);if(j%3===0)fx('spark',p.x,p.y-10,{color:'#e4e8ce',size:3});}tone(220,.15,'sine',.02);}
@@ -146,7 +178,8 @@ function closeModal(){if(state.modal==='death'&&state.player.hp<=0||rpg&&!rpg.on
 $('modal-close').addEventListener('click',closeModal);
 $('pause').addEventListener('click',()=>{if(state.stage==='start')openModal('controls');else if(state.modal)closeModal();else openModal('pause');});
 $('brand').addEventListener('click',e=>{e.preventDefault();if(state.stage==='playing')openModal('pause');});
-$('journal-button').addEventListener('click',()=>openModal('journal'));$('quest-button').addEventListener('click',()=>openModal('journal'));$('map-button').addEventListener('click',()=>openModal('map'));
+function collapseQuest(){$('quest-button').classList.remove('expanded');$('quest-button').setAttribute('aria-expanded','false');}
+$('journal-button').addEventListener('click',()=>openModal('journal'));$('quest-button').addEventListener('click',()=>{if(matchMedia('(max-width:700px),(pointer:coarse)').matches){const expanded=$('quest-button').classList.toggle('expanded');$('quest-button').setAttribute('aria-expanded',String(expanded));}else openModal('journal');});$('map-button').addEventListener('click',()=>openModal('map'));
 $('sound').addEventListener('click',()=>{initAudio();soundOn=!soundOn;$('sound').classList.toggle('sound-on',soundOn);$('sound').setAttribute('aria-label',soundOn?'Выключить звук':'Включить звук');if(soundOn){music();tone(440,.5,'sine',.03);}});
 function drawMap(){const cv=$('map-canvas'),c=cv.getContext('2d'),b=bounds(state.scene);cv.width=512;cv.height=Math.round(512*b.height/b.width);const k=512/b.width;if(state.scene==='overworld'&&art.map)c.drawImage(art.map,0,0,cv.width,cv.height);else if(state.scene==='district'&&art.district)c.drawImage(art.district,0,0,cv.width,cv.height);else if(art.interiors&&INTERIORS[state.scene]){const i=INTERIORS[state.scene].cell,w=art.interiors.width/3,h=art.interiors.height/3;c.drawImage(art.interiors,i%3*w,Math.floor(i/3)*h,w,h,0,0,cv.width,cv.height);}c.fillStyle='#20160b55';c.fillRect(0,0,cv.width,cv.height);const mark=(x,y,color,text)=>{c.font='bold 12px Georgia';c.textAlign='center';c.fillStyle=color;c.shadowColor='#000';c.shadowBlur=5;c.fillText(text,x*k,y*k);};if(state.scene==='overworld'){for(const e of state.enemies)if(e.hp>0)mark(e.x,e.y,'#d3a6b6','×');for(const s of state.shards)if(!s.collected)mark(s.x,s.y,'#a5e6e7','✦');}if(state.scene==='district')for(const d of DOORS)mark(d.x,d.y,'#f8e5b3',d.label);const target=currentTarget();if(target)mark(target.x,target.y-25,'#f7d89b','◇');mark(state.player.x,state.player.y,'#fff1b9','●');}
 function enemyAI(e,dt){if(e.hp<=0||state.scene!=='overworld')return;e.flash=Math.max(0,e.flash-dt);e.attackCD-=dt;e.skillCD-=dt;e.moving=false;if(e.action){e.action.t+=dt;if(e.action.t>e.action.duration)e.action=null;}
@@ -162,11 +195,11 @@ function update(dt){state.time+=dt;
  if(state.stage!=='playing'||state.paused||state.dialog)return;
  const p=state.player,cl=classInfo();for(const k of ['invuln','flash','attackCD','dashCD','shield'])p[k]=Math.max(0,p[k]-dt);p.cooldowns=p.cooldowns.map(n=>Math.max(0,n-dt));p.mp=Math.min(p.maxMp,p.mp+cl.regen*dt);rpg.update(dt);if(p.action){p.action.t+=dt;if(p.action.t>p.action.duration)p.action=null;}for(const h of state.pendingHits||[]){h.delay-=dt;if(h.delay<=0)h.callback();}state.pendingHits=(state.pendingHits||[]).filter(h=>h.delay>0);
  let dx=input.joyX+(input.keys.has('KeyD')||input.keys.has('ArrowRight')?1:0)-(input.keys.has('KeyA')||input.keys.has('ArrowLeft')?1:0),dy=input.joyY+(input.keys.has('KeyS')||input.keys.has('ArrowDown')?1:0)-(input.keys.has('KeyW')||input.keys.has('ArrowUp')?1:0);
- if(state.romancePose){dx=0;dy=0;}const len=Math.hypot(dx,dy);p.moving=len>.08;if(p.moving){if(len>1){dx/=len;dy/=len;}moveEntity(p,dx*cl.speed*dt,dy*cl.speed*dt);p.dir=Math.abs(dx)>Math.abs(dy)?dx>0?'right':'left':dy>0?'down':'up';}
+ if(state.romancePose){dx=0;dy=0;}const len=Math.hypot(dx,dy);p.moving=len>.08;if(p.moving){if(len>1){dx/=len;dy/=len;}const before=p.walkDistance||0;moveEntity(p,dx*cl.speed*dt,dy*cl.speed*dt);p.moving=(p.walkDistance||0)>before+.01;p.dir=Math.abs(dx)>Math.abs(dy)?dx>0?'right':'left':dy>0?'down':'up';if(p.moving)collapseQuest();}
  if(input.attack)attack();for(const e of state.enemies)enemyAI(e,dt);
  for(const pr of state.projectiles){pr.life-=dt;pr.x+=pr.vx*dt;pr.y+=pr.vy*dt;if(pr.friendly){for(const e of state.enemies){if(e.hp>0&&(e.type!=='boss'||state.quest>=3)&&Math.hypot(pr.x-e.x,pr.y-(e.y-14))<19){hitEnemy(e,pr.damage);pr.life=0;break;}}}else if(Math.hypot(pr.x-p.x,pr.y-(p.y-14))<16){damagePlayer(pr.damage);pr.life=0;}}
  state.projectiles=state.projectiles.filter(pr=>pr.life>0);
- for(const a of state.areas){a.timer-=dt;if(a.timer<=0){fx('ring',a.x,a.y,{r:a.r,color:a.friendly?'#f3ba7c':'#d0a5eb'});burst(a.x,a.y,a.friendly?'#f2bc8c':'#ba94df',22);if(a.friendly){for(const e of state.enemies)if(e.hp>0&&distance(a,e)<a.r&&(e.type!=='boss'||state.quest>=3))hitEnemy(e,a.damage,true);}else if(distance(a,p)<a.r)damagePlayer(30);}}state.areas=state.areas.filter(a=>a.timer>0);
+ for(const a of state.areas){a.timer-=dt;if(a.timer<=0){if(a.kind==='meteor')fx('flameburst',a.x,a.y,{r:a.r,life:.65,maxLife:.65});fx('ring',a.x,a.y,{r:a.r,color:a.friendly?'#f3ba7c':'#d0a5eb'});burst(a.x,a.y,a.friendly?'#f2bc8c':'#ba94df',22);if(a.friendly){for(const e of state.enemies)if(e.hp>0&&distance(a,e)<a.r&&(e.type!=='boss'||state.quest>=3))hitEnemy(e,a.damage,true);}else if(distance(a,p)<a.r)damagePlayer(30);}}state.areas=state.areas.filter(a=>a.timer>0);
  if(state.quest>=4)hide('boss-bar');
  if(state.herb&&!state.herbReward&&p.y>630&&p.y<670){fx('spark',567,640,{color:'#c6f4ad',size:2});}
  if(state.quest===5&&state.scene==='overworld'){const l=state.npcs[2];if(distance(l,p)>180){l.x=p.x;l.y=p.y+30;}if(distance(l,p)>45){const a=Math.atan2(p.y-l.y,p.x-l.x);moveEntity(l,Math.cos(a)*82*dt,Math.sin(a)*82*dt);l.moving=true;l.dir=Math.sin(a)>0?'down':'up';}else l.moving=false;}
@@ -191,7 +224,7 @@ function moveStick(e){if(e.pointerId!==input.pointerId)return;const b=$('joystic
 $('joystick').addEventListener('pointermove',moveStick);for(const ev of ['pointerup','pointercancel','lostpointercapture'])$('joystick').addEventListener(ev,joystickReset);
 $('attack').addEventListener('pointerdown',e=>{e.preventDefault();e.currentTarget.setPointerCapture(e.pointerId);input.attack=true;attack();});for(const ev of ['pointerup','pointercancel','lostpointercapture'])$('attack').addEventListener(ev,()=>input.attack=false);
 $('dash').addEventListener('pointerdown',e=>{e.preventDefault();dash();});
-document.querySelectorAll('[data-action]').forEach(el=>el.addEventListener('click',()=>{const action=el.dataset.action;if(action==='heal')heal();else useSkill(Number(action.slice(-1))-1);}));
+document.querySelectorAll('[data-action]').forEach(el=>el.addEventListener('click',()=>{if(el.dataset.suppressClick==='true'){delete el.dataset.suppressClick;return;}const action=el.dataset.action;if(action==='heal')heal();else useSkill(Number(action.slice(-1))-1);}));
 canvas.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse'&&e.button===0){input.attack=true;attack();}});window.addEventListener('pointerup',e=>{if(e.pointerType==='mouse')input.attack=false;});
 window.addEventListener('keydown',e=>{if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();if(e.repeat)return;if(e.code==='Escape'){if(state.dialog){return;}if(state.modal)closeModal();else openModal(state.stage==='start'?'controls':'pause');return;}if(state.dialog){if(['Enter','KeyF','Space'].includes(e.code))nextDialog();return;}if(state.paused||state.stage!=='playing')return;input.keys.add(e.code);if(e.code==='KeyK')input.attack=true;if(e.code==='KeyF')interact();if(e.code==='KeyQ')heal();if(e.code==='Space')dash();if(e.code==='Digit1')useSkill(0);if(e.code==='Digit2')useSkill(1);if(e.code==='Digit3')useSkill(2);if(e.code==='KeyJ')openModal('journal');if(e.code==='KeyM')openModal('map');});
 window.addEventListener('keyup',e=>{input.keys.delete(e.code);if(e.code==='KeyK')input.attack=false;});
@@ -199,5 +232,6 @@ function resetInputs(){input.keys.clear();input.attack=false;joystickReset();}
 window.addEventListener('blur',()=>{resetInputs();if(state.stage==='playing'&&!state.dialog&&!state.modal)openModal('pause');});document.addEventListener('visibilitychange',()=>{if(document.hidden){saveGame();resetInputs();if(state.stage==='playing'&&!state.dialog&&!state.modal)openModal('pause');}});window.addEventListener('pagehide',saveGame);window.addEventListener('contextmenu',e=>{if(e.target.closest('#app'))e.preventDefault();});
 rpg=createRPG({state,toast,saveGame,openModal,closeModal,hitEnemy,dialog,burst,queueHit,moveEntity,heal:()=>heal(true),resetInputs,updateQuest,snapCamera:()=>{view.camera.x=state.player.x;view.camera.y=state.player.y;},spawnPatrol:()=>{for(const e of state.enemies.filter(e=>e.type!=='boss'))Object.assign(e,enemy(e.id,e.homeX,e.homeY,e.tier));}});
 installSaveTransfer({state,saveGame,continueGame,closeModal,toast});
+updateSkillIcons=installSkillUI(state,CLASSES);
 window.addEventListener('keydown',e=>{if(state.stage!=='playing'||state.dialog||e.repeat)return;const screen={KeyI:'inventory',KeyC:'character',KeyT:'talents',KeyB:'professions'}[e.code];if(screen){e.preventDefault();openModal(screen);}});
 await loadArt();drawPortraits();selectClass('paladin');if(hasSave())show('continue-button');hide('loading');requestAnimationFrame(frame);

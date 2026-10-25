@@ -68,16 +68,17 @@ export function canWalk(scene,x,y,quest=5){
 }
 export function walkableFoot(scene,x,y,quest){return [[0,0],[-5,0],[5,0],[0,-3],[0,3]].every(([dx,dy])=>canWalk(scene,x+dx,y+dy,quest));}
 export function safePosition(scene,x,y,quest){if(walkableFoot(scene,x,y,quest))return{x,y};for(let r=8;r<210;r+=8)for(let a=0;a<Math.PI*2;a+=.35){const nx=x+Math.cos(a)*r,ny=y+Math.sin(a)*r;if(walkableFoot(scene,nx,ny,quest))return{x:nx,y:ny};}return scene==='overworld'?{x:512,y:1340}:scene==='district'?{x:768,y:900}:{x:320,y:530};}
-export function sceneNPCs(state){const scene=state.scene||'overworld',t=state.time;
+function patrolNPC(npc,points,speed,time,pause=1.8){const segments=points.map((p,i)=>{const next=points[(i+1)%points.length],length=Math.hypot(next[0]-p[0],next[1]-p[1]);return{from:p,to:next,length,duration:length/speed};}),duration=segments.reduce((n,s)=>n+s.duration+pause,0),cycle=Math.floor(Math.max(0,time)/duration);let t=((time%duration)+duration)%duration,total=cycle*segments.reduce((n,s)=>n+s.length,0);for(const s of segments){if(t<=s.duration+pause){const moving=t<s.duration,progress=Math.min(1,t/s.duration),dx=s.to[0]-s.from[0],dy=s.to[1]-s.from[1],dir=Math.abs(dx)>Math.abs(dy)?dx>0?'right':'left':dy>0?'down':'up';return{...npc,x:s.from[0]+dx*progress,y:s.from[1]+dy*progress,dir,moving,walkDistance:total+s.length*progress};}t-=s.duration+pause;total+=s.length;}return npc;}
+export function sceneNPCs(state){const scene=state.scene||'overworld',t=state.world?.elapsed||0;
  const companion=state.quest>=5&&state.companion?.scene===scene&&(state.world?.relationship?.following||scene==='home')?[state.companion]:[];
  if(scene==='overworld')return[...state.npcs.filter(n=>state.quest<5||n.id!=='liora'),...companion];
  if(scene==='home')return companion.length?companion:state.quest>=5?[{id:'amo-home',name:'Амо',x:415,y:485,type:'liora',dir:'left',marker:'♡'}]:[];
  if(INTERIORS[scene]){const r=INTERIORS[scene];return[{id:'service',x:320,y:267,type:r.type,name:r.npc,marker:'◇',dir:'down'},...companion];}
  return [
-  {id:'mason',name:'Каменщик',x:635+Math.sin(t*.2)*35,y:640,type:'elder',dir:'left',moving:true},
-  {id:'weaver',name:'Ткачиха',x:1050,y:625+Math.sin(t*.17)*32,type:'merchant',dir:'down',moving:true},
-  {id:'porter',name:'Носильщик',x:670+Math.sin(t*.12)*100,y:390,type:'elder',dir:'right',moving:true},
-  {id:'child',name:'Ученик пекаря',x:900+Math.sin(t*.3)*40,y:775,type:'merchant',dir:'left',moving:true},
+  patrolNPC({id:'mason',name:'Каменщик',type:'elder'},[[635,640],[695,640]],30,t),
+  patrolNPC({id:'weaver',name:'Ткачиха',type:'merchant'},[[1050,625],[1000,630],[1000,680]],32,t+3),
+  patrolNPC({id:'porter',name:'Носильщик',type:'elder'},[[570,390],[820,390]],44,t+5),
+  patrolNPC({id:'child',name:'Ученик пекаря',type:'merchant'},[[865,750],[965,705]],45,t+2),
   {id:'guard',name:'Дозорный',x:800,y:300,type:'boss',dir:'down',marker:'◇'},
   {id:'visitor',name:'Путница',x:445,y:530,type:'merchant',dir:'right',marker:'◇'},...companion
  ];

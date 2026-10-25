@@ -1,7 +1,7 @@
-import {CLASSES,ITEMS,SLOTS,PROFESSIONS,RECIPES,talents} from './content.js';
-import {DOORS,INTERIORS,NODES,bounds,safePosition,sceneNPCs} from './world.js';
-import {sprite} from './art.js';
-import {createCompanion,newRelationship} from './companion.js';
+import {CLASSES,ITEMS,SLOTS,PROFESSIONS,RECIPES,talents} from './content.js?v=3';
+import {DOORS,INTERIORS,NODES,bounds,safePosition,sceneNPCs} from './world.js?v=3';
+import {sprite} from './art.js?v=3';
+import {createCompanion,newRelationship} from './companion.js?v=3';
 const $=id=>document.getElementById(id);
 const freshWorld=()=>({elapsed:0,profession:null,professionXP:{},resources:{},house:{owned:false,stage:0,garden:false,hearth:false,plantedAt:null},relationship:newRelationship(),contract:null,blessedUntil:0,mountUntil:0,visits:[]});
 const item=(id,qty=1)=>({id,qty});
@@ -50,7 +50,7 @@ export function createRPG(api){
  }
  function onKill(e){if(Math.random()<.8||e.type==='boss'){const id=e.type==='boss'?'gem':['ore','cloth','leather','herb'][state.killCount%4];state.loot.push({scene:state.scene,x:e.x+13,y:e.y,item:id,qty:e.type==='boss'?2:1});}if(state.player.type==='necromancer'||stats().lifesteal)state.player.hp=Math.min(state.player.maxHp,state.player.hp+8);sync();}
  function update(dt){if(state.stage!=='playing'||state.paused||state.dialog)return;state.world.elapsed+=dt;romance?.update(dt);for(const e of state.enemies){if(e.poison>0&&e.hp>0){e.poison-=dt;e.poisonTick=(e.poisonTick||0)+dt;if(e.poisonTick>1){e.poisonTick=0;api.hitEnemy(e,5+state.player.level);}}e.slow=Math.max(0,(e.slow||0)-dt);}
-  state.summons=state.summons.filter(s=>{s.life-=dt;if(s.life<=0||s.hp<=0)return false;if(s.action){s.action.t+=dt;if(s.action.t>s.action.duration)s.action=null;}const target=state.enemies.filter(e=>e.hp>0&&(e.type!=='boss'||state.quest>=3)).sort((a,b)=>Math.hypot(a.x-s.x,a.y-s.y)-Math.hypot(b.x-s.x,b.y-s.y))[0];const dest=target&&Math.hypot(target.x-state.player.x,target.y-state.player.y)<280?target:state.player,d=Math.hypot(dest.x-s.x,dest.y-s.y),a=Math.atan2(dest.y-s.y,dest.x-s.x);s.dir=Math.abs(Math.cos(a))>.65?(Math.cos(a)>0?'right':'left'):(Math.sin(a)>0?'down':'up');s.moving=false;if(d>32){api.moveEntity(s,Math.cos(a)*(s.type==='undeadpaladin'?70:100)*dt,Math.sin(a)*(s.type==='undeadpaladin'?70:100)*dt);s.moving=true;}s.cd-=dt;if(target===dest&&d<(s.type==='undeadpaladin'?65:44)&&s.cd<=0){s.cd=s.type==='undeadpaladin'?1.35:.95;s.action={kind:'attack',t:0,duration:.7,dir:s.dir};api.queueHit(.32,()=>{if(s.hp>0&&target.hp>0&&distance(target,s)<80)api.hitEnemy(target,(s.type==='undeadpaladin'?59:18)+state.player.level*3);});}return true;});
+  state.summons=state.summons.filter(s=>{s.life-=dt;if(s.life<=0||s.hp<=0)return false;if(s.rise>0){s.rise=Math.max(0,s.rise-dt);s.moving=false;return true;}if(s.action){s.action.t+=dt;if(s.action.t>s.action.duration)s.action=null;}const target=state.enemies.filter(e=>e.hp>0&&(e.type!=='boss'||state.quest>=3)).sort((a,b)=>Math.hypot(a.x-s.x,a.y-s.y)-Math.hypot(b.x-s.x,b.y-s.y))[0];const dest=target&&Math.hypot(target.x-state.player.x,target.y-state.player.y)<280?target:state.player,d=Math.hypot(dest.x-s.x,dest.y-s.y),a=Math.atan2(dest.y-s.y,dest.x-s.x);s.dir=Math.abs(Math.cos(a))>.65?(Math.cos(a)>0?'right':'left'):(Math.sin(a)>0?'down':'up');s.moving=false;if(d>32){api.moveEntity(s,Math.cos(a)*(s.type==='undeadpaladin'?70:100)*dt,Math.sin(a)*(s.type==='undeadpaladin'?70:100)*dt);s.moving=true;}s.cd-=dt;if(target===dest&&d<(s.type==='undeadpaladin'?65:44)&&s.cd<=0){s.cd=s.type==='undeadpaladin'?1.35:.95;s.action={kind:'attack',t:0,duration:.7,dir:s.dir};api.queueHit(.32,()=>{if(s.hp>0&&target.hp>0&&distance(target,s)<80)api.hitEnemy(target,(s.type==='undeadpaladin'?59:18)+state.player.level*3);});}return true;});
  }
  const icon=(id,cls='')=>`<span class="item-icon ${cls}" style="background-position:${ITEMS[id].icon%6/5*100}% ${Math.floor(ITEMS[id].icon/6)/3*100}%" role="img" aria-label="${ITEMS[id].name}"></span>`;
  const button=(action,label,extra='',disabled=false)=>`<button data-rpg="${action}" ${extra} ${disabled?'disabled':''} class="rpg-button">${label}</button>`;

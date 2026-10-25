@@ -1,4 +1,4 @@
-import {DOORS,walkableFoot,safePosition} from './world.js';
+import {DOORS,walkableFoot,safePosition} from './world.js?v=3';
 export const newRelationship=()=>({bond:30,following:true,holdingHands:false,talk:0,memories:[],events:[],activity:null,restedUntil:0,visited:[],gathered:0});
 const $=id=>document.getElementById(id),cap=(n,min,max)=>Math.max(min,Math.min(max,n));
 const escape=s=>String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
@@ -9,14 +9,16 @@ export function createCompanion(api){
  function bond(n,event){const r=rel();r.bond=cap(r.bond+n,0,100);if(event)r.events=[event,...r.events].slice(0,12);}
  function ensure(){if(state.quest<5)return null;if(!state.companion||state.companion.scene!==state.scene){const pos=safePosition(state.scene,state.player.x+24,state.player.y+24,state.quest);state.companion={id:'amo-companion',type:'liora',name:'Амо',marker:'♡',scene:state.scene,dir:'down',...pos,moving:false,stalled:0};}return state.companion;}
  function nearby(){if(state.quest<5)return null;const c=ensure();if((rel().following||state.scene==='home')&&distance(c,state.player)<65)return{kind:'world',action:'companion',label:'Амо · поговорить',x:c.x,y:c.y};return null;}
- function navigate(c,target,dt){const d=distance(c,target);if(d<8)return false;const a=Math.atan2(target.y-c.y,target.x-c.x),speed=state.player.moving?Math.max(110,api.stats().speed+8):85;let best=null;for(const turn of[0,.5,-.5,1,-1,1.6,-1.6]){const x=c.x+Math.cos(a+turn)*speed*dt,y=c.y+Math.sin(a+turn)*speed*dt;if(walkableFoot(state.scene,x,y,state.quest)){const score=Math.hypot(target.x-x,target.y-y);if(!best||score<best.score)best={x,y,score};}}if(best){const dx=best.x-c.x,dy=best.y-c.y;c.x=best.x;c.y=best.y;c.dir=Math.abs(dx)>Math.abs(dy)?dx>0?'right':'left':dy>0?'down':'up';return true;}return false;}
+ function navigate(c,target,dt){const d=distance(c,target);if(d<1)return false;const a=Math.atan2(target.y-c.y,target.x-c.x),speed=state.player.moving?Math.max(110,api.stats().speed+18):85,step=Math.min(d,speed*dt);let best=null;for(const turn of[0,.5,-.5,1,-1,1.6,-1.6]){const x=c.x+Math.cos(a+turn)*step,y=c.y+Math.sin(a+turn)*step;if(walkableFoot(state.scene,x,y,state.quest)){const score=Math.hypot(target.x-x,target.y-y);if(!best||score<best.score)best={x,y,score};}}if(best){const dx=best.x-c.x,dy=best.y-c.y;c.walkDistance=(c.walkDistance||0)+Math.hypot(dx,dy);c.x=best.x;c.y=best.y;c.dir=Math.abs(dx)>Math.abs(dy)?dx>0?'right':'left':dy>0?'down':'up';return true;}return false;}
  function update(dt){if(state.quest<5)return;const r=rel(),c=ensure(),p=state.player;
   if(state.romancePose){state.romancePose.t+=dt;if(state.romancePose.kind!=='night'&&state.romancePose.t>=state.romancePose.duration){state.romancePose=null;saveGame();}}
   if(!r.following&&state.scene!=='home'){c.moving=false;return;}
   const activePose=state.romancePose&&state.romancePose.kind!=='night';
   if(activePose){c.x=p.x+22;c.y=p.y;c.moving=false;return;}
   if(state.scene==='home'&&!r.following){c.x=415;c.y=485;c.dir='left';c.moving=false;}
-  else{const d=distance(c,p),offset=r.holdingHands?22:35,target={x:p.x+offset,y:p.y+9};if(d>200){Object.assign(c,safePosition(state.scene,p.x+offset,p.y+20,state.quest));}c.moving=distance(c,p)>(r.holdingHands?24:43)?navigate(c,target,dt):false;}
+  else{const d=distance(c,p);if(d>200)Object.assign(c,safePosition(state.scene,p.x+30,p.y+20,state.quest));
+   if(r.holdingHands){const side=p.dir==='left'||p.dir==='right'?{x:p.dir==='right'?-22:22,y:12}:{x:22,y:0};let target={x:p.x+side.x,y:p.y+side.y};if(!walkableFoot(state.scene,target.x,target.y,state.quest))target={x:p.x-side.x,y:p.y-side.y};if(walkableFoot(state.scene,target.x,target.y,state.quest)){c.moving=navigate(c,target,dt)||p.moving;c.dir=p.dir;c.walkDistance=p.walkDistance||0;}else{r.holdingHands=false;c.moving=navigate(c,p,dt);toast('Амо отпускает руку, чтобы обойти препятствие.');}}
+   else{const target={x:p.x+30,y:p.y+16};c.moving=d>43?navigate(c,target,dt):false;}}
   if(r.following&&!r.visited.includes(state.scene)){r.visited.push(state.scene);const lines={district:'Здесь пахнет хлебом. Слышишь, как снова шумит город?',inn:'Может, сегодня никуда не спешить? Возьмём столик у огня.',church:'Я поставлю свечу. Не за прошлое — за нашу дорогу вперёд.',home:'Вот оно. Место, куда мы будем возвращаться.',workshop:'Давай я подержу доску. Вдвоём получится ровнее.',stables:'Этот серый конь смотрит на тебя так, будто уже знает все твои тайны.'};if(lines[state.scene])toast('Амо: «'+lines[state.scene]+'»');}
   const activity=r.activity;if(activity){activity.walked=(activity.walked||0)+(p.moving?dt:0);if(state.scene===activity.scene&&distance(p,activity)<55&&(activity.kind!=='walk'||activity.walked>2)){r.activity=null;completeActivity(activity);}}
  }
@@ -51,14 +53,14 @@ export function createCompanion(api){
  return{update,nearby,renderModal,target,assist,hud,ensure};
 }
 export function drawRomance(c,state,art,sprite){const pose=state.romancePose,r=state.world?.relationship,p=state.player;if(!r||state.quest<5)return;
- const hands=r.following&&r.holdingHands&&state.companion&&Math.hypot(p.x-state.companion.x,p.y-state.companion.y)<62;
+ const companion=state.companion,hands=r.following&&r.holdingHands&&companion&&Math.hypot(p.x-companion.x,p.y-companion.y)<42;
  if(pose?.kind==='night'){const cv=document.getElementById('night-canvas');if(cv){const cc=cv.getContext('2d');cc.clearRect(0,0,360,300);cc.imageSmoothingEnabled=false;const t=(performance.now()-pose.started)/1000;if(art.bed){const i=Math.floor(t*2)%4,w=art.bed.width/2,h=art.bed.height/2;cc.drawImage(art.bed,i%2*w,Math.floor(i/2)*h,w,h,25,0,310,280);}else{sprite(cc,140,225,p.type,'right',0,3);sprite(cc,205,225,'liora','left',0,3);cc.fillStyle='#85739b';cc.fillRect(75,145,210,100);cc.fillStyle='#c1b0d2';cc.fillRect(75,145,210,8);}cc.font='20px Georgia';cc.textAlign='center';for(let i=0;i<5;i++){cc.globalAlpha=.4+Math.sin(t*2+i)*.3;cc.fillStyle='#e9b6ca';cc.fillText('♡',90+i*45,140-((t*25+i*31)%125));}cc.globalAlpha=1;}return;}
- if(!pose&&!hands)return;let frame=0;
+ if(!pose){if(hands){const dx=companion.x-p.x,dy=companion.y-p.y,x1=p.x+Math.sign(dx)*6,y1=p.y-19+Math.sign(dy)*2,x2=companion.x-Math.sign(dx)*5,y2=companion.y-19-Math.sign(dy)*2;c.strokeStyle='#d7b38a';c.lineWidth=2;c.lineJoin='round';c.beginPath();c.moveTo(x1,y1);c.lineTo((x1+x2)/2,(y1+y2)/2+2);c.lineTo(x2,y2);c.stroke();c.fillStyle='#e5c69d';c.fillRect((x1+x2)/2-1,(y1+y2)/2+1,3,2);}return;}let frame=0;
  if(pose?.kind==='hug')frame=pose.t<.35?1:pose.t<2.25?2:1;
  if(pose?.kind==='kiss')frame=pose.t<.4?1:pose.t<.8?2:pose.t<2.8?3:2;
- const bob=hands&&p.moving?Math.sin(state.time*12)*1.3:0;
- if(art.couple){const row={paladin:0,mage:1,rogue:2,necromancer:3}[p.type]||0,w=art.couple.width/4,h=art.couple.height/4;c.drawImage(art.couple,frame*w+w*.04,row*h+h*.02,w*.92,h*.96,p.x-43,p.y-66+bob,86,78);}else{sprite(c,p.x-11,p.y,p.type,'right',state.time);sprite(c,p.x+18,p.y,'liora','left',state.time);}
- if(pose&&['hug','kiss','walk'].includes(pose.kind)){c.font='13px Georgia';c.textAlign='center';for(let i=0;i<3;i++){c.fillStyle='#efb9c9';c.globalAlpha=Math.max(0,1-((pose.t+i*.45)%1.4)/1.4);c.fillText('♡',p.x-18+i*17,p.y-64-((pose.t*17+i*8)%25));}c.globalAlpha=1;}
+ if(pose.kind==='hug'||pose.kind==='kiss'){const registered=art.animations?.couples?.[p.type]?.[frame];if(registered)c.drawImage(registered,p.x-registered.anchorX,p.y-registered.anchorY);else{sprite(c,p.x-8,p.y,p.type,'right',state.time);sprite(c,p.x+12,p.y,'liora','left',state.time);}}
+ else{sprite(c,p.x-12,p.y,p.type,'right',state.time);sprite(c,p.x+14,p.y,'liora','left',state.time);}
+ if(pose&&['hug','kiss','walk'].includes(pose.kind)){c.font='10px Georgia';c.textAlign='center';for(let i=0;i<3;i++){c.fillStyle='#efb9c9';c.globalAlpha=Math.max(0,1-((pose.t+i*.45)%1.4)/1.4);c.fillText('♡',p.x-13+i*13,p.y-44-((pose.t*12+i*6)%19));}c.globalAlpha=1;}
  if(pose?.kind==='dinner'){c.fillStyle='#6f4d2e';c.fillRect(p.x-48,p.y-25,96,27);c.fillStyle='#b58a4f';for(let j=0;j<3;j++)c.fillRect(p.x-46,p.y-24+j*8,92,2);for(const x of[-22,22]){c.fillStyle='#e0d8b7';c.beginPath();c.ellipse(p.x+x,p.y-14,10,5,0,0,7);c.fill();c.fillStyle='#a16a36';c.beginPath();c.ellipse(p.x+x,p.y-14,7,3,0,0,7);c.fill();}}
  if(pose?.kind==='fishing'){c.strokeStyle='#9a8154';c.lineWidth=2;c.beginPath();c.moveTo(p.x+18,p.y-28);c.lineTo(p.x+58,p.y-52+Math.sin(pose.t*3));c.stroke();c.strokeStyle='#ece4bf99';c.lineWidth=.7;c.beginPath();c.moveTo(p.x+58,p.y-52);c.lineTo(p.x+70,p.y+2+Math.sin(pose.t*2)*2);c.stroke();c.fillStyle='#db8874';c.fillRect(p.x+68,p.y,3,4);}
  if(pose?.kind==='garden'){c.fillStyle='#7fa0a0';c.fillRect(p.x+24,p.y-32,12,10);c.strokeStyle='#b4dbe1';for(let j=0;j<5;j++){c.beginPath();c.moveTo(p.x+37+j*3,p.y-26+j*3);c.lineTo(p.x+39+j*3,p.y-21+j*3);c.stroke();}}

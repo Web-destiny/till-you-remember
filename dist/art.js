@@ -1,15 +1,26 @@
-import {sceneBackground,drawEnvironment,drawOcclusion,sceneNPCs} from './world.js';
-import {drawRomance} from './companion.js';
+import {sceneBackground,drawEnvironment,drawOcclusion,sceneNPCs} from './world.js?v=3';
+import {drawRomance} from './companion.js?v=3';
+import {createAnimationLibrary,drawFrame,walkFrame} from './animation.js?v=3';
+import {drawProjectile,drawArea,drawActorAura,drawSkillEffect} from './combat-effects.js?v=3';
 export const WORLD = { width:1024, height:1536 };
 export const art = { map:null, sheet:null, npcs:null, sheets:{},classes:null,district:null,interiors:null,actions:null,enemyActions:null,couple:null,bed:null };
 export async function loadArt(){
   const load = src => new Promise(resolve=>{const im=new Image();im.onload=()=>resolve(im);im.onerror=()=>resolve(null);im.src=src;});
   const files={map:'tiholesie.png',npcs:'characters-ash-v2.png',classes:'classes-v2.png',district:'district-v2.png',interiors:'interiors-v2.png',actions:'actions-v2.png',enemyActions:'enemy-actions-v2.png',couple:'couple-v2.png',bed:'bed-v2.png'};
   await Promise.all(Object.entries(files).map(async([key,file])=>{art[key]=await load('assets/'+file);}));
+  art.animations=createAnimationLibrary(art,load);
+  await Promise.all([art.animations.ensureWalk('paladin'),art.animations.ensureWalk('liora')]);
 }
 const palettes={knight:['#263d32','#58795b','#8d9b73','#e9d9ad'],mage:['#2e254b','#665286','#a795c2','#e9d9ad'],rogue:['#252e38','#48586a','#87979b','#e3c79a'],liora:['#493341','#9e6586','#d5a2bc','#f3dfbf'],elder:['#343d3b','#6c7a71','#b5c2a9','#e4d8b7'],merchant:['#453223','#8d6540','#b9995b','#edd3a8'],shade:['#221e35','#443653','#75608a','#a9a0b4'],boss:['#251e35','#51405d','#8b6393','#e1b5db']};
-export function sprite(c,x,y,type='knight',dir='down',t=0,scale=1,hurt=false,walking=false,action=null){
+export function sprite(c,x,y,type='knight',dir='down',t=0,scale=1,hurt=false,walking=false,action=null,walkDistance=0){
   c.save();c.translate(Math.round(x),Math.round(y));c.scale(scale,scale);c.imageSmoothingEnabled=false;
+  if(art.animations){
+    const library=art.animations;let frame=null,flip=false;
+    if(action&&library.actions[type]){const direction=action.dir==='up'?'up':'down',frames=library.actions[type][direction];frame=frames[Math.min(frames.length-1,Math.floor(Math.max(0,action.t/action.duration)*frames.length))];flip=dir==='left';}
+    else if(walking){library.ensureWalk(type);const frames=library.walks[type]?.[dir];if(frames)frame=frames[walkFrame(walkDistance,frames.length)];}
+    if(!frame){const idle=library.idle[type];frame=idle?.[dir]||((dir==='left'||dir==='right')?library.walks[type]?.[dir]?.[2]:null)||idle?.down;flip=!idle?.[dir]&&!library.walks[type]?.[dir]&&dir==='left';}
+    if(frame){if(flip)c.scale(-1,1);if(hurt)c.filter='brightness(2) saturate(.4)';drawFrame(c,frame);c.restore();return;}
+  }
   if(action&&art.actions&&['paladin','mage','rogue','necromancer'].includes(type)){const progress=Math.min(.999,Math.max(0,action.t/action.duration)),frame=Math.floor(progress*4),row=({paladin:0,mage:1,rogue:2,necromancer:3}[type])*2+(action.dir==='up'?1:0),w=art.actions.width/4,h=art.actions.height/8;if(dir==='left')c.scale(-1,1);if(hurt)c.filter='brightness(2)';const lean=Math.sin(progress*Math.PI)*3;c.translate(Math.cos(action.angle||0)*lean,Math.sin(action.angle||0)*lean);c.drawImage(art.actions,frame*w,row*h,w,h,-28,-51,56,56);c.restore();return;}
   if(art.enemyActions&&['shade','boss','skeleton','undeadpaladin'].includes(type)){const row={shade:0,boss:2,skeleton:4,undeadpaladin:6}[type]+(dir==='up'?1:0),w=art.enemyActions.width/4,h=art.enemyActions.height/8,frame=action?Math.min(3,1+Math.floor(action.t/action.duration*3)):0;if(dir==='left')c.scale(-1,1);if(hurt)c.filter='brightness(2)';if(walking&&!action)c.translate(0,Math.round(Math.sin(t*11)));c.drawImage(art.enemyActions,frame*w,row*h,w,h,-27,-50,54,54);c.restore();return;}
   if(art.classes&&['paladin','mage','rogue','necromancer'].includes(type)){const cw=art.classes.width/4,ch=art.classes.height/4,row={paladin:0,mage:1,rogue:2,necromancer:3}[type],col={down:0,left:1,right:2,up:3}[dir]||0;if(hurt)c.filter='brightness(2)';if(walking)c.translate(0,Math.round(Math.sin(t*13)));c.drawImage(art.classes,col*cw,row*ch,cw,ch,-26,-49,52,52);c.restore();return;}
@@ -59,27 +70,31 @@ export function drawWorld(c,view,state){
     }
   }
   if(state.scene==='overworld'&&state.quest===2){c.strokeStyle='#c891ec88';c.lineWidth=3;c.beginPath();c.moveTo(448,297);c.lineTo(574,297);c.stroke();for(let i=0;i<9;i++){c.fillStyle=`rgba(194,147,231,${.3+Math.sin(time*3+i)*.2})`;c.fillRect(449+i*15,286+Math.sin(time*4+i)*5,1,19);}}
-  for(const area of state.areas){c.save();c.strokeStyle=area.friendly?'#b9e8ce':'#ed8c9e';c.fillStyle=area.friendly?'#b9e8ce12':'#ed8c9e20';c.lineWidth=1;c.beginPath();c.ellipse(area.x,area.y,area.r,area.r*.6,0,0,Math.PI*2);c.fill();c.stroke();c.restore();}
+  for(const area of state.areas)drawArea(c,area);
+  for(const f of state.effects)if(f.kind==='smoke'){c.save();c.globalAlpha=Math.max(0,f.life/f.maxLife);drawSkillEffect(c,f,state,sprite);c.restore();}
   const objects=[...sceneNPCs(state).filter(n=>!n.hidden).map(n=>({...n,kind:'npc'})),...state.enemies.filter(e=>e.hp>0&&state.stage==='playing'&&state.scene==='overworld').map(e=>({...e,kind:'enemy'})),...(state.summons||[]).map(s=>({...s,kind:'summon'})),{...state.player,kind:'player'}].sort((a,b)=>a.y-b.y);
   for(const ob of objects){
-    const paired=state.romancePose||state.world?.relationship?.holdingHands&&state.world?.relationship?.following&&state.companion&&Math.hypot(state.companion.x-state.player.x,state.companion.y-state.player.y)<62;if(paired&&(ob.kind==='player'||['amo-companion','amo-home'].includes(ob.id)))continue;
+    const paired=state.romancePose;if(paired&&(ob.kind==='player'||['amo-companion','amo-home'].includes(ob.id)))continue;
     if(ob.x<camera.x-width/zoom/2-90||ob.x>camera.x+width/zoom/2+90||ob.y<camera.y-height/zoom/2-90||ob.y>camera.y+height/zoom/2+90)continue;
     c.fillStyle='#10231666';c.beginPath();c.ellipse(ob.x,ob.y,ob.type==='boss'?20:11,4,0,0,7);c.fill();
     if(ob.kind==='player'&&state.player.invuln>0&&Math.floor(time*16)%2===0)c.globalAlpha=.5;
-    if(ob.kind==='summon'){c.strokeStyle='#b0e89f88';c.lineWidth=1;c.beginPath();c.ellipse(ob.x,ob.y,ob.type==='undeadpaladin'?22:12,5,0,0,7);c.stroke();}sprite(c,ob.x,ob.y,ob.type,ob.dir||'down',time,ob.type==='boss'||ob.type==='undeadpaladin'?1.5:1,ob.flash>0,ob.moving,ob.action);c.globalAlpha=1;c.filter='none';
+    if(ob.kind==='summon'){c.strokeStyle='#b0e89f88';c.lineWidth=1;c.beginPath();c.ellipse(ob.x,ob.y,ob.type==='undeadpaladin'?22:12,5,0,0,7);c.stroke();}if(ob.rise>0){c.save();c.beginPath();c.rect(ob.x-60,ob.y-70,120,70);c.clip();c.translate(0,ob.rise/(ob.type==='undeadpaladin'?.7:.45)*55);}const gait=ob.id==='amo-companion'&&state.world.relationship.holdingHands?state.player.walkDistance:ob.walkDistance;sprite(c,ob.x,ob.y,ob.type,ob.dir||'down',time,ob.type==='boss'||ob.type==='undeadpaladin'?1.5:1,ob.flash>0,ob.moving,ob.action,gait);if(ob.rise>0)c.restore();c.globalAlpha=1;c.filter='none';
+    drawActorAura(c,ob,time);
     if(ob.kind==='enemy'&&ob.hp<ob.maxHp){c.fillStyle='#1c1c2b';c.fillRect(ob.x-13,ob.y-(ob.type==='boss'?72:48),26,3);c.fillStyle=ob.type==='boss'?'#c997bd':'#c5a7ac';c.fillRect(ob.x-13,ob.y-(ob.type==='boss'?72:48),26*ob.hp/ob.maxHp,2);}
     if(ob.kind==='npc'&&ob.marker){c.font='bold 16px Georgia';c.textAlign='center';c.fillStyle='#ead89a';c.shadowColor='#142517';c.shadowBlur=6;c.fillText(ob.marker,ob.x,ob.y-47+Math.sin(time*2)*2);c.shadowBlur=0;}
   }
   drawRomance(c,state,art,sprite);drawOcclusion(c,state,art);
   for(const fx of state.effects){
+    if(fx.kind==='smoke')continue;
     c.save();c.globalAlpha=Math.max(0,fx.life/fx.maxLife);
+    if(drawSkillEffect(c,fx,state,sprite)){c.restore();continue;}
     if(fx.kind==='slash'){c.translate(fx.x,fx.y-13);c.rotate(fx.angle);c.strokeStyle=fx.color;c.lineWidth=fx.heavy?5:3;c.beginPath();c.arc(0,0,fx.r,-1,1);c.stroke();c.lineWidth=1;c.strokeStyle='#fff6d6';c.beginPath();c.arc(0,0,fx.r+3,-.8,.8);c.stroke();}
     if(fx.kind==='ring'){c.strokeStyle=fx.color;c.lineWidth=2;c.beginPath();c.ellipse(fx.x,fx.y-5,fx.r*(1-fx.life/fx.maxLife)+5,(fx.r*(1-fx.life/fx.maxLife)+5)*.65,0,0,7);c.stroke();}
-    if(fx.kind==='text'){c.font=`bold ${fx.big?19:13}px Georgia`;c.textAlign='center';c.fillStyle=fx.color;c.strokeStyle='#14231e';c.lineWidth=3;c.strokeText(fx.text,fx.x,fx.y);c.fillText(fx.text,fx.x,fx.y);}
+    if(fx.kind==='text'){c.font=`bold ${fx.small?8:fx.big?19:13}px Georgia`;c.textAlign='center';c.fillStyle=fx.color;c.strokeStyle='#14231e';c.lineWidth=fx.small?2:3;c.strokeText(fx.text,fx.x,fx.y);c.fillText(fx.text,fx.x,fx.y);}
     if(fx.kind==='spark'){c.fillStyle=fx.color;c.fillRect(fx.x,fx.y,fx.size||2,fx.size||2);}
     c.restore();
   }
-  for(const p of state.projectiles){c.fillStyle=p.color||(p.friendly?'#c3e8dc':'#c99ce7');c.beginPath();c.arc(p.x,p.y,3,0,7);c.fill();c.strokeStyle=p.friendly?'#dcf9dd99':'#d8b4f699';c.lineWidth=2;c.beginPath();c.moveTo(p.x,p.y);c.lineTo(p.x-p.vx*.035,p.y-p.vy*.035);c.stroke();}
+  for(const p of state.projectiles)drawProjectile(c,p);
   // Wind-blown flecks and fireflies keep the static terrain alive without a heavy shader.
   for(let i=0;i<36;i++){const px=(i*163+Math.sin(time*.3+i)*35)%1024,py=(i*97-time*(i%3+2)+15360)%1536;
     c.globalAlpha=.2+Math.sin(time+i)*.15;c.fillStyle=i%3===0?'#e8dba3':'#d7e5b1';c.fillRect(px,py,2,2);
