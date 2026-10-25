@@ -1,0 +1,7 @@
+{
+  "name": "till-you-remember",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": { "start": "node server.mjs", "check": "node --check dist/game.js && node --check dist/art.js" }
+}

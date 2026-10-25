@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <meta name="theme-color" content="#101b19">
+  <meta name="description" content="Пока ты помнишь — пиксельная action RPG о любви, памяти и дороге сквозь тьму. Играй в вертикальном режиме на телефоне.">
+  <title>Пока ты помнишь — Till You Remember</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23101b19'/%3E%3Cpath d='M16 3 25 16 16 29 7 16Z' fill='%23d8c18c'/%3E%3Cpath d='m16 9 4 7-4 7-4-7Z' fill='%23101b19'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<svg class="svg-library" aria-hidden="true"><defs>
+<symbol id="i-sword" viewBox="0 0 24 24"><path d="m14 4 6-1-1 6-9 9-4-4Z M5 13l6 6M3 21l4-4"/></symbol>
+<symbol id="i-spark" viewBox="0 0 24 24"><path d="m12 2 3 7 7 3-7 3-3 7-3-7-7-3 7-3Z"/></symbol>
+<symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 15A9 9 0 0 1 9 4a9 9 0 1 0 11 11Z"/></symbol>
+<symbol id="i-book" viewBox="0 0 24 24"><path d="M12 6v15M3 4c4-1 6 0 9 2 3-2 5-3 9-2v15c-4-1-6 0-9 2-3-2-5-3-9-2Z"/></symbol>
+<symbol id="i-map" viewBox="0 0 24 24"><path d="m3 5 6-2 6 2 6-2v16l-6 2-6-2-6 2ZM9 3v16m6-14v16"/></symbol>
+<symbol id="i-sound" viewBox="0 0 24 24"><path d="m11 4-6 5H2v6h3l6 5ZM15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/></symbol>
+<symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></symbol>
+<symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4 12h16m-6-6 6 6-6 6"/></symbol>
+<symbol id="i-dash" viewBox="0 0 24 24"><path d="m13 4 8 8-8 8M3 8h8M1 12h13M3 16h8"/></symbol>
+<symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 21 3 12C-3 4 8-1 12 7 16-1 27 4 21 12Z"/></symbol>
+<symbol id="i-hand" viewBox="0 0 24 24"><path d="M8 13V5a2 2 0 0 1 4 0v7-9a2 2 0 0 1 4 0v9-7a2 2 0 0 1 4 0v11c0 7-10 9-14 3l-4-5c-2-3 1-5 3-3l3 2"/></symbol>
+</defs></svg>
+<main id="app">
+  <canvas id="world" aria-label="Игровой мир. Управляйте героем джойстиком или клавишами WASD."></canvas>
+  <div class="vignette"></div>
+  <header class="topbar">
+    <a class="brand" href="#" id="brand" aria-label="Пауза"><span class="brand-glyph">◇</span><span>TILL YOU<br><b>REMEMBER</b></span></a>
+    <div class="location"><span class="location-line"></span><div><small id="region-label">ГЛАВА I · СЛЕДЫ В ТИШИНЕ</small><span id="region">Тихолесье</span></div></div>
+    <div class="top-actions"><button class="icon-button" id="sound" aria-label="Включить звук" title="Звук"><svg><use href="#i-sound"/></svg><span class="sound-slash"></span></button><button class="icon-button" id="pause" aria-label="Пауза" title="Пауза · Esc"><svg><use href="#i-pause"/></svg></button></div>
+  </header>
+  <div id="hud" class="hidden">
+    <section class="player-card"><div class="portrait-wrap"><canvas id="portrait" width="48" height="56"></canvas><span id="level">1</span></div><div class="vitals"><div class="player-name"><strong>Элиан</strong><small id="class-label">Страж</small></div><div class="meter hp"><i id="hp-fill"></i><span id="hp-text">160 / 160</span></div><div class="meter mana"><i id="mp-fill"></i></div></div></section>
+    <button class="quest-tracker" id="quest-button"><span class="quest-diamond">◇</span><span><small>ГЛАВНЫЙ КВЕСТ</small><strong id="quest-title">Когда погас свет</strong><span id="quest-objective">Найдите старосту у колодца</span></span><svg><use href="#i-arrow"/></svg></button>
+    <div class="utility-buttons"><button class="icon-button" id="journal-button" aria-label="Журнал квестов"><svg><use href="#i-book"/></svg><kbd>J</kbd></button><button class="icon-button" id="map-button" aria-label="Карта мира"><svg><use href="#i-map"/></svg><kbd>M</kbd></button></div>
+    <div id="boss-bar" class="hidden"><small>ХРАНИТЕЛЬ ЗАБЫТЫХ ИМЁН</small><div class="meter"><i id="boss-fill"></i></div></div>
+    <div class="compass" id="compass"><span>◇</span><small id="compass-distance"></small></div>
+    <div class="toasts" id="toasts" aria-live="polite"></div>
+    <button id="interact" class="interact-button hidden"><span>F</span><strong id="interact-label">Поговорить</strong><svg><use href="#i-hand"/></svg></button>
+    <div class="bottom-hud"><div class="chapter-mark"><span>01</span><i></i><small>У КАЖДОЙ ПАМЯТИ<br>ЕСТЬ СВОЙ СВЕТ</small></div><div class="skills"><button class="skill" id="skill-1" data-action="skill1"><kbd>1</kbd><svg><use href="#i-sword"/></svg><span class="skill-timer"></span><small>Рассечение</small></button><button class="skill" id="skill-2" data-action="skill2"><kbd>2</kbd><svg><use href="#i-spark"/></svg><span class="skill-timer"></span><small>Свет памяти</small></button><button class="skill" id="skill-3" data-action="skill3"><kbd>3</kbd><svg><use href="#i-moon"/></svg><span class="skill-timer"></span><small>Буря</small></button><span class="skill-divider"></span><button class="skill heal" id="heal" data-action="heal"><kbd>Q</kbd><svg><use href="#i-heart"/></svg><b id="potion-count">3</b><small>Зелье</small></button></div><div class="desktop-help"><span><kbd>W A S D</kbd> Движение</span><span><kbd>КЛИК</kbd> Удар <kbd>ПРОБЕЛ</kbd> Рывок</span></div></div>
+    <div id="touch-controls"><div id="joystick" aria-label="Джойстик движения"><div class="stick-ring"></div><span id="stick"></span><i>ДВИЖЕНИЕ</i></div><div class="combat-controls"><button id="dash" class="dash-button" aria-label="Рывок"><svg><use href="#i-dash"/></svg></button><button id="attack" class="attack-button" aria-label="Атака"><svg><use href="#i-sword"/></svg></button></div></div>
+  </div>
+  <section id="start-screen" class="start-screen">
+    <div class="start-top"><span class="edition">ИНТЕРАКТИВНАЯ ПИКСЕЛЬНАЯ ИСТОРИЯ</span><span class="edition">ПРОЛОГ <i>✦</i> 01</span></div>
+    <div class="start-content"><div class="story-intro"><div class="eyebrow"><i></i> НЕКОТОРЫЕ ОБЕЩАНИЯ СИЛЬНЕЕ ТЬМЫ</div><h1>Пока ты<br><em>помнишь.</em></h1><p>В ту ночь туман забрал её.<br>Но он не забрал твою память.</p><div class="intro-note"><span>◇</span><span>Найди Лиору.<br><small>Даже если мир забудет её имя.</small></span></div></div>
+    <div class="class-panel"><div class="panel-heading"><span>ВЫБЕРИ СВОЙ ПУТЬ</span><small>01 / 03</small></div><div class="class-cards" role="group" aria-label="Выбор класса"><button class="class-card selected" data-class="knight" aria-pressed="true"><canvas width="64" height="76" data-portrait="knight"></canvas><strong>Страж</strong><small>КЛИНОК И СТОЙКОСТЬ</small><span class="selection-dot"></span></button><button class="class-card" data-class="mage" aria-pressed="false"><canvas width="64" height="76" data-portrait="mage"></canvas><strong>Чародей</strong><small>МАГИЯ И ДИСТАНЦИЯ</small><span class="selection-dot"></span></button><button class="class-card" data-class="rogue" aria-pressed="false"><canvas width="64" height="76" data-portrait="rogue"></canvas><strong>Скиталец</strong><small>СКОРОСТЬ И ТЕНИ</small><span class="selection-dot"></span></button></div><p id="class-description">Его клинок защищал город. Теперь он защищает единственное, что осталось — обещание вернуться за ней.</p><button class="primary-button" id="start-button"><span>Начать историю</span><svg><use href="#i-arrow"/></svg></button><button id="continue-button" class="continue-button hidden">Продолжить путешествие <span>↗</span></button><div class="start-foot"><span><i class="status-dot"></i> СОХРАНЕНИЕ НА УСТРОЙСТВЕ</span><span>НАУШНИКИ РЕКОМЕНДУЮТСЯ</span></div></div></div>
+    <div class="start-bottom"><span>ЛЮБОВЬ ОСТАВЛЯЕТ СЛЕД.</span><span>2D ACTION RPG <i>✦</i> ГЛАВА I</span></div>
+  </section>
+  <section id="dialog" class="dialog hidden" role="dialog" aria-label="Диалог"><div class="dialog-portrait"><canvas id="dialog-portrait" width="64" height="76"></canvas></div><div class="dialog-copy"><small id="dialog-role"></small><h3 id="dialog-name"></h3><p id="dialog-text"></p><button id="dialog-next">Далее <span>↵</span></button></div></section>
+  <div id="modal" class="modal hidden" role="dialog" aria-modal="true"><div class="modal-card"><button id="modal-close" class="close-button" aria-label="Закрыть">×</button><div id="modal-content"></div></div></div>
+  <div id="transition" class="transition hidden"><small id="transition-kicker">ГЛАВА I</small><h2 id="transition-title">Следы в тишине</h2><span>✦</span></div>
+  <div id="loading" class="loading"><span>◇</span><small>ПРОБУЖДАЕМ ТИХОЛЕСЬЕ</small><div></div></div>
+</main>
+<script type="module" src="game.js"></script>
+</body>
+</html>
